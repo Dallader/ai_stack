@@ -1,0 +1,31 @@
+# Node / Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+*.venv
+
+# Docker
+**/docker-compose.override.yml
+**/volumes/
+**/tmp/
+**/data/
+**/cache/
+
+# Ollama / AnythingLLM / modele
+ollama/models/
+*.bin
+*.pt
+*.ckpt
+
+# Qdrant / wektory / bazy
+qdrant/data/
+qdrant/backups/
+
+# VS Code
+.vscode/
+
+# system Windows
+Thumbs.db
+Desktop.ini
