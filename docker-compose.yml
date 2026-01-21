@@ -11,12 +11,6 @@ services:
       - qdrant_data:/qdrant/storage
     networks:
       - ai_network
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:6333/healthz || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
 
   ollama:
     image: ollama/ollama:latest
@@ -28,12 +22,6 @@ services:
       - ollama_data:/root/.ollama
     networks:
       - ai_network
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
 
   # WebUI (depends on Ollama)
   open-webui:
@@ -49,8 +37,7 @@ services:
     networks:
       - ai_network
     depends_on:
-      ollama:
-        condition: service_healthy
+      - ollama
 
   # Agent services (depend on Qdrant and Ollama)
   agent1_student:
@@ -68,10 +55,8 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:
-      qdrant:
-        condition: service_healthy
-      ollama:
-        condition: service_healthy
+      - qdrant
+      - ollama
 
   agent2_ticket:
     build:
@@ -88,10 +73,8 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:
-      qdrant:
-        condition: service_healthy
-      ollama:
-        condition: service_healthy
+      - qdrant
+      - ollama
 
   agent3_analytics:
     build:
@@ -108,10 +91,8 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:
-      qdrant:
-        condition: service_healthy
-      ollama:
-        condition: service_healthy
+      - qdrant
+      - ollama
 
   agent4_bos:
     build:
@@ -128,10 +109,8 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:
-      qdrant:
-        condition: service_healthy
-      ollama:
-        condition: service_healthy
+      - qdrant
+      - ollama
 
   agent5_security:
     build:
@@ -148,10 +127,8 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:
-      qdrant:
-        condition: service_healthy
-      ollama:
-        condition: service_healthy
+      - qdrant
+      - ollama
 
   # Node-RED (depends on all agents being available)
   node-red:
