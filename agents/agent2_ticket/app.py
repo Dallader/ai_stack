@@ -2,7 +2,8 @@ import os
 import json
 from typing import Optional, Dict, List
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from langchain_community.chat_models import ChatOllama
 from langchain_community.embeddings import OllamaEmbeddings
 from qdrant_client import QdrantClient
@@ -198,6 +199,11 @@ async def startup_event():
 async def root():
     greeting = agent_behavior.get("behavior", {}).get("greeting", "Hello!")
     return {"message": greeting}
+
+@app.get("/upload_form.html")
+async def get_upload_form():
+    """Serve the upload form HTML"""
+    return FileResponse("upload_form.html")
 
 @app.post("/run")
 async def run(payload: dict):
