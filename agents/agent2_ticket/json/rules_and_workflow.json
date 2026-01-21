@@ -1,0 +1,27 @@
+{
+    "rules": [
+        {
+            "trigger": "*",
+            "response": "Sprawdzam bazę dokumentów dla Twojego pytania: '{query}'...",
+            "next": {
+                "trigger": "*",
+                "save_as": "query",
+                "response": "Nie znalazłem odpowiedzi. Czy możesz podać dodatkowe szczegóły?",
+                "next": {
+                    "trigger": "*",
+                    "save_as": "additional_info",
+                    "response": "Sprawdzam ponownie bazę dokumentów z dodatkowymi informacjami...",
+                    "next": {
+                        "trigger": "*",
+                        "response": "Nie znalazłem odpowiedzi. Nadaję kategorię, priorytet i tworzę zgłoszenie...",
+                        "next": {
+                            "trigger": "*",
+                            "save_as": "category",
+                            "response": "Zgłoszenie utworzone.\nKategoria: {category}\nPriorytet: {priority}\nPowiadomiłem Ciebie i dział BOS e-mailem.\nCzy mogę pomóc w czymś jeszcze lub masz kolejne pytanie?"
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}

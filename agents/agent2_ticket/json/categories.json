@@ -1,0 +1,16 @@
+{
+    "categories": [
+        {
+            "name": "Akademickie",
+            "priority": "Wysoki"
+        },
+        {
+            "name": "Administracyjne",
+            "priority": "Średni"
+        },
+        {
+            "name": "Techniczne",
+            "priority": "Niski"
+        }
+    ]
+}

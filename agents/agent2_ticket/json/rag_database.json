@@ -1,0 +1,16 @@
+{
+    "documents": {
+        "rekrutacja": [
+            "Terminy rekrutacji",
+            "Wymagane dokumenty do rekrutacji"
+        ],
+        "stypendia": [
+            "Rodzaje stypendiów",
+            "Warunki przyznania stypendium"
+        ],
+        "egzaminy": [
+            "Harmonogram egzaminów",
+            "Zasady oceniania"
+        ]
+    }
+}
