@@ -244,6 +244,7 @@ class DocumentUploader:
         """
         try:
             # Extract text from file
+            print(f"📄 Processing file: {filename or file_path}")
             text = self.file_processor.extract_text(
                 file_path=file_path,
                 file_content=file_content,
@@ -253,11 +254,15 @@ class DocumentUploader:
             if not text.strip():
                 return {"error": "No text content found in file"}
             
+            print(f"✅ Extracted {len(text)} characters from file")
+            
             # Chunk the text
             chunks = self.chunk_text(text)
             
             if not chunks:
                 return {"error": "No chunks created from text"}
+            
+            print(f"📦 Created {len(chunks)} chunks from text")
             
             # Create points for Qdrant
             points = []
@@ -289,19 +294,24 @@ class DocumentUploader:
                         payload=payload
                     )
                     points.append(point)
+                    print(f"  ⚡ Generated embedding for chunk {i+1}/{len(chunks)}")
                     
                 except Exception as e:
-                    print(f"Error processing chunk {i}: {e}")
+                    print(f"❌ Error processing chunk {i}: {e}")
                     continue
             
             if not points:
                 return {"error": "No points created from chunks"}
             
             # Upload to Qdrant
+            print(f"⬆️  Uploading {len(points)} points to Qdrant collection '{self.collection_name}'...")
             self.qdrant_client.upsert(
                 collection_name=self.collection_name,
                 points=points
             )
+            
+            print(f"✅ Successfully uploaded '{filename or Path(file_path).name}' to Qdrant!")
+            print(f"   📊 {len(points)} chunks | 📁 Category: {category}")
             
             return {
                 "status": "success",
