@@ -1,0 +1,340 @@
+[
+    {
+        "id": "orchestration_tab",
+        "type": "tab",
+        "label": "Orchestration - Multi-Agent Workflow",
+        "disabled": false,
+        "info": "Complete workflow orchestrating multiple agents together"
+    },
+    {
+        "id": "inject_user_query",
+        "type": "inject",
+        "z": "orchestration_tab",
+        "name": "User Query",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "user",
+                "v": "{\\\"id\\\":\\\"user123\\\",\\\"email\\\":\\\"student@university.edu\\\",\\\"name\\\":\\\"Jan Kowalski\\\"}",
+                "vt": "json"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "Mam problem z dostępem do systemu ocen",
+        "payloadType": "str",
+        "x": 130,
+        "y": 100,
+        "wires": [
+            [
+                "log_security_audit"
+            ]
+        ]
+    },
+    {
+        "id": "log_security_audit",
+        "type": "function",
+        "z": "orchestration_tab",
+        "name": "Log to Security Agent",
+        "func": "// Save original message\nflow.set('original_query', msg.payload);\nflow.set('user_info', msg.user);\n\n// Prepare security audit log\nmsg.payload = {\n    \"input\": `User query received from ${msg.user.name} (${msg.user.email}): ${msg.payload}`\n};\n\nmsg.url = \"http://agent5_security:8000/run\";\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 100,
+        "wires": [
+            [
+                "http_security_log"
+            ]
+        ]
+    },
+    {
+        "id": "http_security_log",
+        "type": "http request",
+        "z": "orchestration_tab",
+        "name": "Agent 5 (Security)",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "sendsPayload": true,
+        "x": 600,
+        "y": 100,
+        "wires": [
+            [
+                "route_to_agent"
+            ]
+        ]
+    },
+    {
+        "id": "route_to_agent",
+        "type": "function",
+        "z": "orchestration_tab",
+        "name": "Route Query",
+        "func": "// Get original query\nconst query = flow.get('original_query');\nconst user = flow.get('user_info');\n\n// Simple routing logic\nlet targetAgent = 'agent2_ticket'; // Default to ticket system\nlet step = 'initial';\n\n// Check for keywords\nif (query.toLowerCase().includes('analiz') || query.toLowerCase().includes('statyst')) {\n    targetAgent = 'agent3_analytics';\n} else if (query.toLowerCase().includes('uczy') || query.toLowerCase().includes('pytanie')) {\n    targetAgent = 'agent1_student';\n}\n\n// Prepare payload\nmsg.payload = {\n    \"input\": query,\n    \"step\": step,\n    \"user\": user\n};\n\nmsg.targetAgent = targetAgent;\nmsg.url = `http://${targetAgent}:8000/run`;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 800,
+        "y": 100,
+        "wires": [
+            [
+                "http_target_agent",
+                "debug_routing"
+            ]
+        ]
+    },
+    {
+        "id": "http_target_agent",
+        "type": "http request",
+        "z": "orchestration_tab",
+        "name": "Target Agent",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "sendsPayload": true,
+        "x": 1000,
+        "y": 100,
+        "wires": [
+            [
+                "check_response_type"
+            ]
+        ]
+    },
+    {
+        "id": "check_response_type",
+        "type": "switch",
+        "z": "orchestration_tab",
+        "name": "Check Response",
+        "property": "payload.step",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "completed",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "ticket_created",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "need_details",
+                "vt": "str"
+            },
+            {
+                "t": "else"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 4,
+        "x": 1200,
+        "y": 100,
+        "wires": [
+            [
+                "send_to_user"
+            ],
+            [
+                "notify_bos_and_user"
+            ],
+            [
+                "request_more_info"
+            ],
+            [
+                "send_to_user"
+            ]
+        ]
+    },
+    {
+        "id": "send_to_user",
+        "type": "function",
+        "z": "orchestration_tab",
+        "name": "Format User Response",
+        "func": "const user = flow.get('user_info');\n\nmsg.userResponse = {\n    \"to\": user.email,\n    \"response\": msg.payload.response || msg.payload.result || msg.payload.insights,\n    \"timestamp\": new Date().toISOString()\n};\n\nmsg.payload = msg.userResponse;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1440,
+        "y": 60,
+        "wires": [
+            [
+                "debug_user_response"
+            ]
+        ]
+    },
+    {
+        "id": "notify_bos_and_user",
+        "type": "function",
+        "z": "orchestration_tab",
+        "name": "Notify BOS",
+        "func": "const user = flow.get('user_info');\nconst ticket = msg.payload.ticket;\n\n// Notify BOS Agent\nmsg.bosPayload = {\n    \"input\": `New ticket from ${user.name}: ${ticket.category} - Priority: ${ticket.priority}`\n};\n\n// Prepare user notification\nmsg.userResponse = {\n    \"to\": user.email,\n    \"response\": msg.payload.response,\n    \"ticket\": ticket,\n    \"timestamp\": new Date().toISOString()\n};\n\n// Set BOS URL for next node\nmsg.url = \"http://agent4_bos:8000/run\";\nmsg.payload = msg.bosPayload;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1410,
+        "y": 120,
+        "wires": [
+            [
+                "http_notify_bos"
+            ]
+        ]
+    },
+    {
+        "id": "http_notify_bos",
+        "type": "http request",
+        "z": "orchestration_tab",
+        "name": "Agent 4 (BOS)",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "sendsPayload": true,
+        "x": 1610,
+        "y": 120,
+        "wires": [
+            [
+                "send_analytics"
+            ]
+        ]
+    },
+    {
+        "id": "send_analytics",
+        "type": "function",
+        "z": "orchestration_tab",
+        "name": "Log Analytics",
+        "func": "const user = flow.get('user_info');\n\n// Send ticket data to analytics agent\nmsg.payload = {\n    \"input\": `Ticket created: Category=${msg.userResponse.ticket.category}, Priority=${msg.userResponse.ticket.priority}, User=${user.name}`\n};\n\nmsg.url = \"http://agent3_analytics:8000/run\";\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1810,
+        "y": 120,
+        "wires": [
+            [
+                "http_analytics"
+            ]
+        ]
+    },
+    {
+        "id": "http_analytics",
+        "type": "http request",
+        "z": "orchestration_tab",
+        "name": "Agent 3 (Analytics)",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "sendsPayload": true,
+        "x": 2020,
+        "y": 120,
+        "wires": [
+            [
+                "debug_complete"
+            ]
+        ]
+    },
+    {
+        "id": "request_more_info",
+        "type": "function",
+        "z": "orchestration_tab",
+        "name": "Request Details",
+        "func": "const user = flow.get('user_info');\n\nmsg.userResponse = {\n    \"to\": user.email,\n    \"response\": \"Potrzebuję więcej informacji. Czy możesz podać dodatkowe szczegóły?\",\n    \"requires_followup\": true,\n    \"original_query\": msg.payload.original_query,\n    \"timestamp\": new Date().toISOString()\n};\n\nmsg.payload = msg.userResponse;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1430,
+        "y": 180,
+        "wires": [
+            [
+                "debug_user_response"
+            ]
+        ]
+    },
+    {
+        "id": "debug_routing",
+        "type": "debug",
+        "z": "orchestration_tab",
+        "name": "Routing Decision",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1010,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "debug_user_response",
+        "type": "debug",
+        "z": "orchestration_tab",
+        "name": "User Response",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1680,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "debug_complete",
+        "type": "debug",
+        "z": "orchestration_tab",
+        "name": "Workflow Complete",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 2230,
+        "y": 120,
+        "wires": []
+    }
+]

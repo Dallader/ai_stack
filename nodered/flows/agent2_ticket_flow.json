@@ -1,0 +1,340 @@
+[
+    {
+        "id": "ticket_flow_tab",
+        "type": "tab",
+        "label": "Agent 2 - Ticket System",
+        "disabled": false,
+        "info": "Complete workflow for Agent 2 ticket system with multi-step conversation"
+    },
+    {
+        "id": "inject_initial_query",
+        "type": "inject",
+        "z": "ticket_flow_tab",
+        "name": "Initial Query",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Jak mogę zmienić hasło?\",\"step\":\"initial\"}",
+        "payloadType": "json",
+        "x": 130,
+        "y": 100,
+        "wires": [
+            [
+                "http_request_agent2"
+            ]
+        ]
+    },
+    {
+        "id": "inject_with_details",
+        "type": "inject",
+        "z": "ticket_flow_tab",
+        "name": "Query with Details",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Nie mogę się zalogować do systemu\",\"step\":\"need_details\",\"original_query\":\"Jak mogę zmienić hasło?\"}",
+        "payloadType": "json",
+        "x": 130,
+        "y": 160,
+        "wires": [
+            [
+                "http_request_agent2"
+            ]
+        ]
+    },
+    {
+        "id": "inject_create_ticket",
+        "type": "inject",
+        "z": "ticket_flow_tab",
+        "name": "Create Ticket",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Mój laptop nie działa\",\"step\":\"create_ticket\",\"additional_info\":\"Laptop nie włącza się od wczoraj\"}",
+        "payloadType": "json",
+        "x": 130,
+        "y": 220,
+        "wires": [
+            [
+                "http_request_agent2"
+            ]
+        ]
+    },
+    {
+        "id": "http_request_agent2",
+        "type": "http request",
+        "z": "ticket_flow_tab",
+        "name": "Agent 2 API",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent2_ticket:8000/run",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "sendsPayload": true,
+        "x": 370,
+        "y": 160,
+        "wires": [
+            [
+                "check_step",
+                "debug_response"
+            ]
+        ]
+    },
+    {
+        "id": "check_step",
+        "type": "switch",
+        "z": "ticket_flow_tab",
+        "name": "Check Step",
+        "property": "payload.step",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "need_details",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "completed",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "ticket_created",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 3,
+        "x": 570,
+        "y": 160,
+        "wires": [
+            [
+                "handle_need_details"
+            ],
+            [
+                "handle_completed"
+            ],
+            [
+                "handle_ticket_created"
+            ]
+        ]
+    },
+    {
+        "id": "handle_need_details",
+        "type": "function",
+        "z": "ticket_flow_tab",
+        "name": "Prepare Details Request",
+        "func": "// Save original query from previous response\nmsg.original_query = msg.payload.original_query;\n\n// Set new payload for additional details\nmsg.payload = {\n    \"input\": \"Zapomniałem hasła i nie mam dostępu do emaila\",\n    \"step\": \"need_details\",\n    \"original_query\": msg.original_query\n};\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 800,
+        "y": 100,
+        "wires": [
+            [
+                "delay_before_retry"
+            ]
+        ]
+    },
+    {
+        "id": "delay_before_retry",
+        "type": "delay",
+        "z": "ticket_flow_tab",
+        "name": "Wait 2s",
+        "pauseType": "delay",
+        "timeout": "2",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 1020,
+        "y": 100,
+        "wires": [
+            [
+                "http_request_agent2"
+            ]
+        ]
+    },
+    {
+        "id": "handle_completed",
+        "type": "function",
+        "z": "ticket_flow_tab",
+        "name": "Format Response",
+        "func": "msg.payload = {\n    \"status\": \"success\",\n    \"response\": msg.payload.response,\n    \"rag_results\": msg.payload.rag_results || [],\n    \"step\": \"completed\"\n};\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 800,
+        "y": 160,
+        "wires": [
+            [
+                "debug_final"
+            ]
+        ]
+    },
+    {
+        "id": "handle_ticket_created",
+        "type": "function",
+        "z": "ticket_flow_tab",
+        "name": "Send Email Notification",
+        "func": "// Extract ticket information\nconst ticket = msg.payload.ticket;\n\n// Prepare email payload\nmsg.email = {\n    \"to\": \"support@university.edu\",\n    \"subject\": `New Ticket: ${ticket.category} - ${ticket.priority}`,\n    \"body\": `\nNew ticket created:\n\nQuery: ${ticket.query}\nAdditional Info: ${ticket.additional_info || 'N/A'}\nCategory: ${ticket.category}\nPriority: ${ticket.priority}\nStatus: ${ticket.status}\n    `\n};\n\n// Format response\nmsg.payload = {\n    \"status\": \"ticket_created\",\n    \"ticket_id\": ticket.category + \"_\" + Date.now(),\n    \"response\": msg.payload.response,\n    \"ticket\": ticket\n};\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 820,
+        "y": 220,
+        "wires": [
+            [
+                "debug_ticket",
+                "notify_bos"
+            ]
+        ]
+    },
+    {
+        "id": "notify_bos",
+        "type": "function",
+        "z": "ticket_flow_tab",
+        "name": "Prepare BOS Notification",
+        "func": "// Notify Agent 4 (BOS) about new ticket\nmsg.payload = {\n    \"input\": `New ticket created: ${msg.payload.ticket.category} - Priority: ${msg.payload.ticket.priority}. Query: ${msg.payload.ticket.query}`\n};\n\nmsg.url = \"http://agent4_bos:8000/run\";\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1080,
+        "y": 220,
+        "wires": [
+            [
+                "http_notify_bos"
+            ]
+        ]
+    },
+    {
+        "id": "http_notify_bos",
+        "type": "http request",
+        "z": "ticket_flow_tab",
+        "name": "Notify Agent 4 (BOS)",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "sendsPayload": true,
+        "x": 1300,
+        "y": 220,
+        "wires": [
+            [
+                "debug_bos_response"
+            ]
+        ]
+    },
+    {
+        "id": "debug_response",
+        "type": "debug",
+        "z": "ticket_flow_tab",
+        "name": "Agent 2 Response",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 600,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "debug_final",
+        "type": "debug",
+        "z": "ticket_flow_tab",
+        "name": "Final Response",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1020,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "debug_ticket",
+        "type": "debug",
+        "z": "ticket_flow_tab",
+        "name": "Ticket Created",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1070,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "debug_bos_response",
+        "type": "debug",
+        "z": "ticket_flow_tab",
+        "name": "BOS Notification",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1520,
+        "y": 220,
+        "wires": []
+    }
+]

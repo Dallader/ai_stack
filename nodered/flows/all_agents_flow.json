@@ -1,0 +1,373 @@
+[
+    {
+        "id": "all_agents_tab",
+        "type": "tab",
+        "label": "All Agents - Test Dashboard",
+        "disabled": false,
+        "info": "Test all 5 agents with example payloads"
+    },
+    {
+        "id": "inject_agent1",
+        "type": "inject",
+        "z": "all_agents_tab",
+        "name": "Test Agent 1 (Student)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "url",
+                "v": "http://agent1_student:8000/run",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Explain machine learning in simple terms\"}",
+        "payloadType": "json",
+        "x": 170,
+        "y": 80,
+        "wires": [
+            [
+                "http_request_agent"
+            ]
+        ]
+    },
+    {
+        "id": "inject_agent2",
+        "type": "inject",
+        "z": "all_agents_tab",
+        "name": "Test Agent 2 (Ticket)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "url",
+                "v": "http://agent2_ticket:8000/run",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Jak mogę zmienić hasło?\",\"step\":\"initial\"}",
+        "payloadType": "json",
+        "x": 170,
+        "y": 140,
+        "wires": [
+            [
+                "http_request_agent"
+            ]
+        ]
+    },
+    {
+        "id": "inject_agent3",
+        "type": "inject",
+        "z": "all_agents_tab",
+        "name": "Test Agent 3 (Analytics)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "url",
+                "v": "http://agent3_analytics:8000/run",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Sales data: Q1: 100k, Q2: 150k, Q3: 200k, Q4: 180k. Analyze trends.\"}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 200,
+        "wires": [
+            [
+                "http_request_agent"
+            ]
+        ]
+    },
+    {
+        "id": "inject_agent4",
+        "type": "inject",
+        "z": "all_agents_tab",
+        "name": "Test Agent 4 (BOS)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "url",
+                "v": "http://agent4_bos:8000/run",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Process new ticket notification\"}",
+        "payloadType": "json",
+        "x": 160,
+        "y": 260,
+        "wires": [
+            [
+                "http_request_agent"
+            ]
+        ]
+    },
+    {
+        "id": "inject_agent5",
+        "type": "inject",
+        "z": "all_agents_tab",
+        "name": "Test Agent 5 (Security)",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "url",
+                "v": "http://agent5_security:8000/run",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Audit user login attempt from IP 192.168.1.100\"}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 320,
+        "wires": [
+            [
+                "http_request_agent"
+            ]
+        ]
+    },
+    {
+        "id": "http_request_agent",
+        "type": "http request",
+        "z": "all_agents_tab",
+        "name": "Call Agent API",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "sendsPayload": true,
+        "x": 440,
+        "y": 200,
+        "wires": [
+            [
+                "format_response"
+            ]
+        ]
+    },
+    {
+        "id": "format_response",
+        "type": "function",
+        "z": "all_agents_tab",
+        "name": "Format Response",
+        "func": "// Extract agent name from collection\nconst collection = msg.payload.collection || 'unknown';\nlet agentName = 'Unknown';\n\nif (collection.includes('student')) agentName = 'Agent 1 - Student';\nelse if (collection.includes('ticket')) agentName = 'Agent 2 - Ticket';\nelse if (collection.includes('stat')) agentName = 'Agent 3 - Analytics';\nelse if (collection.includes('bos')) agentName = 'Agent 4 - BOS';\nelse if (collection.includes('audit')) agentName = 'Agent 5 - Security';\n\n// Format output\nmsg.formatted = {\n    \"agent\": agentName,\n    \"collection\": collection,\n    \"timestamp\": new Date().toISOString(),\n    \"response\": msg.payload.response || msg.payload.result || msg.payload.insights || JSON.stringify(msg.payload)\n};\n\nmsg.payload = msg.formatted;\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 660,
+        "y": 200,
+        "wires": [
+            [
+                "debug_output"
+            ]
+        ]
+    },
+    {
+        "id": "debug_output",
+        "type": "debug",
+        "z": "all_agents_tab",
+        "name": "Agent Response",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 870,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "inject_health_check",
+        "type": "inject",
+        "z": "all_agents_tab",
+        "name": "Health Check All",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 420,
+        "wires": [
+            [
+                "check_agent1_health",
+                "check_agent2_health",
+                "check_agent3_health",
+                "check_agent4_health",
+                "check_agent5_health"
+            ]
+        ]
+    },
+    {
+        "id": "check_agent1_health",
+        "type": "http request",
+        "z": "all_agents_tab",
+        "name": "Agent 1 Health",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent1_student:8000/health",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "sendsPayload": false,
+        "x": 440,
+        "y": 380,
+        "wires": [
+            [
+                "debug_health"
+            ]
+        ]
+    },
+    {
+        "id": "check_agent2_health",
+        "type": "http request",
+        "z": "all_agents_tab",
+        "name": "Agent 2 Health",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent2_ticket:8000/health",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "sendsPayload": false,
+        "x": 440,
+        "y": 420,
+        "wires": [
+            [
+                "debug_health"
+            ]
+        ]
+    },
+    {
+        "id": "check_agent3_health",
+        "type": "http request",
+        "z": "all_agents_tab",
+        "name": "Agent 3 Health",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent3_analytics:8000/health",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "sendsPayload": false,
+        "x": 440,
+        "y": 460,
+        "wires": [
+            [
+                "debug_health"
+            ]
+        ]
+    },
+    {
+        "id": "check_agent4_health",
+        "type": "http request",
+        "z": "all_agents_tab",
+        "name": "Agent 4 Health",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent4_bos:8000/health",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "sendsPayload": false,
+        "x": 440,
+        "y": 500,
+        "wires": [
+            [
+                "debug_health"
+            ]
+        ]
+    },
+    {
+        "id": "check_agent5_health",
+        "type": "http request",
+        "z": "all_agents_tab",
+        "name": "Agent 5 Health",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent5_security:8000/health",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "sendsPayload": false,
+        "x": 440,
+        "y": 540,
+        "wires": [
+            [
+                "debug_health"
+            ]
+        ]
+    },
+    {
+        "id": "debug_health",
+        "type": "debug",
+        "z": "all_agents_tab",
+        "name": "Health Status",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 670,
+        "y": 460,
+        "wires": []
+    }
+]
