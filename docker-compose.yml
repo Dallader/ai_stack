@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Infrastructure services (start first)
   qdrant:
@@ -14,10 +12,11 @@ services:
     networks:
       - ai_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:6333/healthz || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   ollama:
     image: ollama/ollama:latest
@@ -26,14 +25,15 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ollama_data:/app/data
+      - ollama_data:/root/.ollama
     networks:
       - ai_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags || exit 1"]
+      interval: 15s
+      timeout: 10s
       retries: 5
+      start_period: 30s
 
   # WebUI (depends on Ollama)
   open-webui:
@@ -65,6 +65,8 @@ services:
       - ai_network
     environment:
       - COLLECTION=agent1_student
+      - QDRANT_URL=http://qdrant:6333
+      - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:
       qdrant:
         condition: service_healthy
@@ -83,6 +85,8 @@ services:
       - ai_network
     environment:
       - COLLECTION=agent2_tickets
+      - QDRANT_URL=http://qdrant:6333
+      - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:
       qdrant:
         condition: service_healthy
@@ -101,6 +105,8 @@ services:
       - ai_network
     environment:
       - COLLECTION=agent3_stats
+      - QDRANT_URL=http://qdrant:6333
+      - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:
       qdrant:
         condition: service_healthy
@@ -119,6 +125,8 @@ services:
       - ai_network
     environment:
       - COLLECTION=agent4_bos
+      - QDRANT_URL=http://qdrant:6333
+      - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:
       qdrant:
         condition: service_healthy
@@ -137,6 +145,8 @@ services:
       - ai_network
     environment:
       - COLLECTION=agent5_audit
+      - QDRANT_URL=http://qdrant:6333
+      - OLLAMA_BASE_URL=http://ollama:11434
     depends_on:
       qdrant:
         condition: service_healthy
