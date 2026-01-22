@@ -29,3 +29,6 @@ qdrant/backups/
 # system Windows
 Thumbs.db
 Desktop.ini
+
+agents/agent2_ticket/TROUBLESHOOTING.md
+agents/agent2_ticket/QUICK_START.md
