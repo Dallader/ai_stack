@@ -53,7 +53,7 @@ def init_qdrant_collection():
         if COLLECTION not in collection_names:
             qdrant_client.create_collection(
                 collection_name=COLLECTION,
-                vectors_config=VectorParams(size=768, distance=Distance.COSINE)
+                vectors_config=VectorParams(size=4096, distance=Distance.COSINE)
             )
             print(f"Created collection: {COLLECTION}")
         else:
