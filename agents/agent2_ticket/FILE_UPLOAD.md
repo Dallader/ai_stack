@@ -16,17 +16,17 @@ This guide explains how to upload PDF, Word, Excel, and other documents to Qdran
 
 ```bash
 # Upload a PDF
-curl -X POST http://localhost:8002/upload \
+curl -X POST http://192.168.0.76:8002/upload \
   -F "file=@/path/to/document.pdf" \
   -F "category=FAQ"
 
 # Upload a Word document
-curl -X POST http://localhost:8002/upload \
+curl -X POST http://192.168.0.76:8002/upload \
   -F "file=@/path/to/manual.docx" \
   -F "category=Manual"
 
 # Upload with custom category
-curl -X POST http://localhost:8002/upload \
+curl -X POST http://192.168.0.76:8002/upload \
   -F "file=@/path/to/policy.pdf" \
   -F "category=Policy"
 ```
@@ -34,7 +34,7 @@ curl -X POST http://localhost:8002/upload \
 ### Upload Multiple Files
 
 ```bash
-curl -X POST http://localhost:8002/upload/batch \
+curl -X POST http://192.168.0.76:8002/upload/batch \
   -F "files=@document1.pdf" \
   -F "files=@document2.docx" \
   -F "files=@document3.txt" \
@@ -44,7 +44,7 @@ curl -X POST http://localhost:8002/upload/batch \
 ### List Uploaded Documents
 
 ```bash
-curl http://localhost:8002/documents
+curl http://192.168.0.76:8002/documents
 ```
 
 **Response:**
@@ -71,13 +71,13 @@ curl http://localhost:8002/documents
 ### Delete a Document
 
 ```bash
-curl -X DELETE http://localhost:8002/documents/user_manual.pdf
+curl -X DELETE http://192.168.0.76:8002/documents/user_manual.pdf
 ```
 
 ### Get Collection Statistics
 
 ```bash
-curl http://localhost:8002/stats
+curl http://192.168.0.76:8002/stats
 ```
 
 **Response:**
@@ -139,8 +139,8 @@ cd /Users/karolsliwka/Desktop/ai_stack/agents/agent2_ticket
 python3 upload_documents.py \
   /path/to/document.pdf \
   --category "FAQ" \
-  --qdrant-url http://localhost:6333 \
-  --ollama-url http://localhost:11434
+  --qdrant-url http://192.168.0.76:6333 \
+  --ollama-url http://192.168.0.76:11434
 
 # Upload directory
 python3 upload_documents.py \
@@ -164,9 +164,9 @@ print(result)
 
 # Advanced usage
 uploader = DocumentUploader(
-    qdrant_url="http://localhost:6333",
+    qdrant_url="http://192.168.0.76:6333",
     collection_name="agent2_tickets",
-    ollama_url="http://localhost:11434",
+    ollama_url="http://192.168.0.76:11434",
     chunk_size=500,  # Adjust chunk size
     chunk_overlap=50  # Overlap between chunks
 )
@@ -257,17 +257,17 @@ cp policies.pdf ~/ticket_docs/
 
 ```bash
 # Upload FAQ
-curl -X POST http://localhost:8002/upload \
+curl -X POST http://192.168.0.76:8002/upload \
   -F "file=@$HOME/ticket_docs/important_faq.pdf" \
   -F "category=FAQ"
 
 # Upload Manual
-curl -X POST http://localhost:8002/upload \
+curl -X POST http://192.168.0.76:8002/upload \
   -F "file=@$HOME/ticket_docs/user_manual.docx" \
   -F "category=Manual"
 
 # Upload Policy
-curl -X POST http://localhost:8002/upload \
+curl -X POST http://192.168.0.76:8002/upload \
   -F "file=@$HOME/ticket_docs/policies.pdf" \
   -F "category=Policy"
 ```
@@ -276,17 +276,17 @@ curl -X POST http://localhost:8002/upload \
 
 ```bash
 # Check uploaded documents
-curl http://localhost:8002/documents | jq
+curl http://192.168.0.76:8002/documents | jq
 
 # Check statistics
-curl http://localhost:8002/stats | jq
+curl http://192.168.0.76:8002/stats | jq
 ```
 
 ### 4. Test RAG Search
 
 ```bash
 # Test if uploaded docs are searchable
-curl -X POST http://localhost:8002/run \
+curl -X POST http://192.168.0.76:8002/run \
   -H "Content-Type: application/json" \
   -d '{
     "input": "Jak mogę zmienić hasło?",
@@ -349,18 +349,18 @@ After uploading documents, test with queries:
 
 ```bash
 # Test 1: Simple query
-curl -X POST http://localhost:8002/run \
+curl -X POST http://192.168.0.76:8002/run \
   -H "Content-Type: application/json" \
   -d '{"input": "Jak się zarejestrować?", "step": "initial"}'
 
 # Test 2: Check RAG results
-curl -X POST http://localhost:8002/run \
+curl -X POST http://192.168.0.76:8002/run \
   -H "Content-Type: application/json" \
   -d '{"input": "Gdzie znaleźć formularze?", "step": "initial"}' \
   | jq '.rag_results'
 
 # Test 3: Category-specific query
-curl -X POST http://localhost:8002/run \
+curl -X POST http://192.168.0.76:8002/run \
   -H "Content-Type: application/json" \
   -d '{"input": "Jaka jest polityka prywatności?", "step": "initial"}'
 ```
@@ -371,20 +371,20 @@ curl -X POST http://localhost:8002/run \
 
 ```bash
 # List all documents
-curl http://localhost:8002/documents
+curl http://192.168.0.76:8002/documents
 
 # Delete specific document
-curl -X DELETE http://localhost:8002/documents/old_manual.pdf
+curl -X DELETE http://192.168.0.76:8002/documents/old_manual.pdf
 ```
 
 ### Re-upload Updated Documents
 
 ```bash
 # Delete old version
-curl -X DELETE http://localhost:8002/documents/manual.pdf
+curl -X DELETE http://192.168.0.76:8002/documents/manual.pdf
 
 # Upload new version
-curl -X POST http://localhost:8002/upload \
+curl -X POST http://192.168.0.76:8002/upload \
   -F "file=@manual_v2.pdf" \
   -F "category=Manual"
 ```
@@ -403,7 +403,7 @@ curl -X POST http://localhost:8002/upload \
 ### "Connection refused"
 - Ensure Ollama is running and healthy
 - Check that llama3 model is pulled: `docker exec ollama ollama list`
-- Verify Qdrant is running: `curl http://localhost:6333/healthz`
+- Verify Qdrant is running: `curl http://192.168.0.76:6333/healthz`
 
 ### Slow upload
 - Large files take time to process
@@ -412,7 +412,7 @@ curl -X POST http://localhost:8002/upload \
 
 ## 📚 Related Documentation
 
-- [Agent 2 API Documentation](http://localhost:8002/docs)
-- [Qdrant Dashboard](http://localhost:6333/dashboard)
+- [Agent 2 API Documentation](http://192.168.0.76:8002/docs)
+- [Qdrant Dashboard](http://192.168.0.76:6333/dashboard)
 - [Main README](../../README.md)
 - [Node-RED Payloads](../../nodered/PAYLOADS.md)

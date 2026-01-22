@@ -28,13 +28,13 @@ def main():
     )
     parser.add_argument(
         '--qdrant-url',
-        default='http://localhost:6333',
-        help='Qdrant URL (default: http://localhost:6333)'
+        default='http://192.168.0.76:6333',
+        help='Qdrant URL (default: http://192.168.0.76:6333)'
     )
     parser.add_argument(
         '--ollama-url',
-        default='http://localhost:11434',
-        help='Ollama URL (default: http://localhost:11434)'
+        default='http://192.168.0.76:11434',
+        help='Ollama URL (default: http://192.168.0.76:11434)'
     )
     parser.add_argument(
         '-r', '--recursive',
