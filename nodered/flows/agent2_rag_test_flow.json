@@ -1,0 +1,617 @@
+[
+    {
+        "id": "e314fdef24748f4a",
+        "type": "tab",
+        "label": "TEST – Agenci AI",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "group_agent2",
+        "type": "group",
+        "z": "e314fdef24748f4a",
+        "name": "Testy Agent 2 (Ticket)",
+        "style": {
+            "stroke": "#92bf92",
+            "fill": "#e3f2e3",
+            "label": true
+        },
+        "nodes": [
+            "inject_init",
+            "inject_rag_test",
+            "req_agent2",
+            "switch_step",
+            "debug_response",
+            "func_simulate_user",
+            "debug_ticket",
+            "inject_health"
+        ],
+        "x": 54,
+        "y": 559,
+        "w": 932,
+        "h": 282
+    },
+    {
+        "id": "18579105a2149f2e",
+        "type": "inject",
+        "z": "e314fdef24748f4a",
+        "name": "AGENT 1 – test chatbot",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "",
+        "topic": "",
+        "x": 140,
+        "y": 80,
+        "wires": [
+            [
+                "92da47c624b39a77"
+            ]
+        ]
+    },
+    {
+        "id": "92da47c624b39a77",
+        "type": "function",
+        "z": "e314fdef24748f4a",
+        "name": "Payload AGENT 1",
+        "func": "msg.payload = {\n  user_id: \"student_001\",\n  text: \"Do kiedy trwa rekrutacja na semestr letni?\"\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 80,
+        "wires": [
+            [
+                "7a3d9dc8ae3987ab"
+            ]
+        ]
+    },
+    {
+        "id": "7a3d9dc8ae3987ab",
+        "type": "http request",
+        "z": "e314fdef24748f4a",
+        "name": "AGENT 1",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent1_student:8000/run",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 560,
+        "y": 80,
+        "wires": [
+            [
+                "a96ea80fc3fb5070"
+            ]
+        ]
+    },
+    {
+        "id": "a96ea80fc3fb5070",
+        "type": "debug",
+        "z": "e314fdef24748f4a",
+        "name": "DEBUG AGENT 1",
+        "active": true,
+        "complete": "payload",
+        "x": 760,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "0956c3c64188e32b",
+        "type": "inject",
+        "z": "e314fdef24748f4a",
+        "name": "AGENT 2 – test ticket",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "",
+        "topic": "",
+        "x": 140,
+        "y": 160,
+        "wires": [
+            [
+                "37fb542815036644"
+            ]
+        ]
+    },
+    {
+        "id": "37fb542815036644",
+        "type": "function",
+        "z": "e314fdef24748f4a",
+        "name": "Payload AGENT 2",
+        "func": "msg.payload = {\n  ticket_id: \"TCK-1001\",\n  text: \"Nie mogę zapisać się na przedmiot – błąd USOS\"\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 360,
+        "y": 160,
+        "wires": [
+            [
+                "66e31e0ac895f4f7"
+            ]
+        ]
+    },
+    {
+        "id": "66e31e0ac895f4f7",
+        "type": "http request",
+        "z": "e314fdef24748f4a",
+        "name": "AGENT 2",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent2_ticket:8000/run",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 560,
+        "y": 160,
+        "wires": [
+            [
+                "49f44ad8974b817e"
+            ]
+        ]
+    },
+    {
+        "id": "49f44ad8974b817e",
+        "type": "debug",
+        "z": "e314fdef24748f4a",
+        "name": "DEBUG AGENT 2",
+        "active": true,
+        "complete": "payload",
+        "x": 760,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "09b7677a969615b5",
+        "type": "inject",
+        "z": "e314fdef24748f4a",
+        "name": "AGENT 3 – test analizy",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "",
+        "topic": "",
+        "x": 140,
+        "y": 240,
+        "wires": [
+            [
+                "b6f2d77d9df51dbf"
+            ]
+        ]
+    },
+    {
+        "id": "b6f2d77d9df51dbf",
+        "type": "function",
+        "z": "e314fdef24748f4a",
+        "name": "Payload AGENT 3",
+        "func": "msg.payload = {\n  data: [\n    {\"category\": \"IT\", \"count\": 42},\n    {\"category\": \"Stypendia\", \"count\": 18}\n  ]\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 360,
+        "y": 240,
+        "wires": [
+            [
+                "fe160b5000165af4"
+            ]
+        ]
+    },
+    {
+        "id": "fe160b5000165af4",
+        "type": "http request",
+        "z": "e314fdef24748f4a",
+        "name": "AGENT 3",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent3_analytics:8000/run",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 560,
+        "y": 240,
+        "wires": [
+            [
+                "a9c8f150cdf592ac"
+            ]
+        ]
+    },
+    {
+        "id": "a9c8f150cdf592ac",
+        "type": "debug",
+        "z": "e314fdef24748f4a",
+        "name": "DEBUG AGENT 3",
+        "active": true,
+        "complete": "payload",
+        "x": 760,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "9e279718f8eb039c",
+        "type": "inject",
+        "z": "e314fdef24748f4a",
+        "name": "AGENT 4 – test BOS",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "",
+        "topic": "",
+        "x": 140,
+        "y": 320,
+        "wires": [
+            [
+                "0355d063fe18f87d"
+            ]
+        ]
+    },
+    {
+        "id": "0355d063fe18f87d",
+        "type": "function",
+        "z": "e314fdef24748f4a",
+        "name": "Payload AGENT 4",
+        "func": "msg.payload = {\n  context: \"Student pyta o urlop dziekański\",\n  task: \"Przygotuj szkic odpowiedzi\"\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 360,
+        "y": 320,
+        "wires": [
+            [
+                "fa8c15872c1ac4b8"
+            ]
+        ]
+    },
+    {
+        "id": "fa8c15872c1ac4b8",
+        "type": "http request",
+        "z": "e314fdef24748f4a",
+        "name": "AGENT 4",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent4_bos:8000/run",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 560,
+        "y": 320,
+        "wires": [
+            [
+                "9a4621dab79763f8"
+            ]
+        ]
+    },
+    {
+        "id": "9a4621dab79763f8",
+        "type": "debug",
+        "z": "e314fdef24748f4a",
+        "name": "DEBUG AGENT 4",
+        "active": true,
+        "complete": "payload",
+        "x": 760,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "0cc05654b6b0b989",
+        "type": "inject",
+        "z": "e314fdef24748f4a",
+        "name": "AGENT 5 – test RODO",
+        "props": [],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": "",
+        "topic": "",
+        "x": 140,
+        "y": 400,
+        "wires": [
+            [
+                "eb822a2a81d4bd1b"
+            ]
+        ]
+    },
+    {
+        "id": "eb822a2a81d4bd1b",
+        "type": "function",
+        "z": "e314fdef24748f4a",
+        "name": "Payload AGENT 5",
+        "func": "msg.payload = {\n  text: \"Jan Kowalski, PESEL 90010112345, prośba o zaświadczenie\"\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 360,
+        "y": 400,
+        "wires": [
+            [
+                "f5d6a1d7b1ada3a8"
+            ]
+        ]
+    },
+    {
+        "id": "f5d6a1d7b1ada3a8",
+        "type": "http request",
+        "z": "e314fdef24748f4a",
+        "name": "AGENT 5",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent5_security:8000/run",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 560,
+        "y": 400,
+        "wires": [
+            [
+                "fde80215dca264e0"
+            ]
+        ]
+    },
+    {
+        "id": "fde80215dca264e0",
+        "type": "debug",
+        "z": "e314fdef24748f4a",
+        "name": "DEBUG AGENT 5",
+        "active": true,
+        "complete": "payload",
+        "x": 760,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "inject_init",
+        "type": "inject",
+        "z": "e314fdef24748f4a",
+        "g": "group_agent2",
+        "name": "Start: Problem z projektorem (Nieznany)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Harmonogram egzaminów\",\"step\":\"initial\"}",
+        "payloadType": "json",
+        "x": 250,
+        "y": 660,
+        "wires": [
+            [
+                "req_agent2"
+            ]
+        ]
+    },
+    {
+        "id": "inject_rag_test",
+        "type": "inject",
+        "z": "e314fdef24748f4a",
+        "g": "group_agent2",
+        "name": "Test RAG: Prawa i obowiązki użytkownika",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"lista Praw i obowiązków Użytkownika Serwisu\",\"step\":\"initial\"}",
+        "payloadType": "json",
+        "x": 270,
+        "y": 720,
+        "wires": [
+            [
+                "req_agent2"
+            ]
+        ]
+    },
+    {
+        "id": "req_agent2",
+        "type": "http request",
+        "z": "e314fdef24748f4a",
+        "g": "group_agent2",
+        "name": "POST http://agent2_ticket:8000/run",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent2_ticket:8000/run",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 580,
+        "y": 660,
+        "wires": [
+            [
+                "switch_step",
+                "debug_response"
+            ]
+        ]
+    },
+    {
+        "id": "switch_step",
+        "type": "switch",
+        "z": "e314fdef24748f4a",
+        "g": "group_agent2",
+        "name": "Sprawdź krok (step)",
+        "property": "payload.step",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "need_details",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "ticket_created",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "completed",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 3,
+        "x": 830,
+        "y": 660,
+        "wires": [
+            [
+                "func_simulate_user"
+            ],
+            [
+                "debug_ticket"
+            ],
+            [
+                "debug_ticket"
+            ]
+        ]
+    },
+    {
+        "id": "debug_response",
+        "type": "debug",
+        "z": "e314fdef24748f4a",
+        "g": "group_agent2",
+        "name": "Pełna odpowiedź API",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 840,
+        "y": 600,
+        "wires": []
+    },
+    {
+        "id": "func_simulate_user",
+        "type": "function",
+        "z": "e314fdef24748f4a",
+        "g": "group_agent2",
+        "name": "Symuluj odpowiedź użytkownika",
+        "func": "// Symulujemy, że użytkownik doprecyzowuje problem\nlet original = msg.payload.original_query;\n\n// Node-RED automatycznie 'odpisuje' na prośbę o szczegóły\nmsg.payload = {\n    \"input\": \"Dioda miga na czerwono i wyświetla błąd lampy\",\n    \"original_query\": original,\n    \"step\": \"need_details\" \n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 570,
+        "y": 760,
+        "wires": [
+            [
+                "req_agent2"
+            ]
+        ]
+    },
+    {
+        "id": "debug_ticket",
+        "type": "debug",
+        "z": "e314fdef24748f4a",
+        "g": "group_agent2",
+        "name": "Wynik końcowy",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 820,
+        "y": 800,
+        "wires": []
+    },
+    {
+        "id": "inject_health",
+        "type": "inject",
+        "z": "e314fdef24748f4a",
+        "g": "group_agent2",
+        "name": "Health Check",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 210,
+        "y": 600,
+        "wires": [
+            [
+                "req_health"
+            ]
+        ]
+    },
+    {
+        "id": "req_health",
+        "type": "http request",
+        "z": "e314fdef24748f4a",
+        "g": "group_agent2",
+        "name": "GET /health",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent2_ticket:8000/health",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 490,
+        "y": 600,
+        "wires": [
+            [
+                "debug_response"
+            ]
+        ]
+    }
+]
