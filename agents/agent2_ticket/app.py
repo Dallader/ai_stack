@@ -67,11 +67,18 @@ def init_qdrant_collection():
 def index_rag_documents():
     """Index documents from rag_database.json into Qdrant"""
     try:
+        print("📚 Starting document indexing...")
         documents = rag_database.get("documents", {})
+        
+        if not documents:
+            print("⚠️ No documents found in rag_database.json!")
+            return
+        
         points = []
         point_id = 1
         
         for category, docs in documents.items():
+            print(f"  📂 Category: {category} ({len(docs)} documents)")
             for doc in docs:
                 text = f"{category}: {doc}"
                 embedding = embeddings.embed_query(text)
@@ -93,31 +100,41 @@ def index_rag_documents():
                 collection_name=COLLECTION,
                 points=points
             )
-            print(f"Indexed {len(points)} documents into Qdrant")
+            print(f"✅ Indexed {len(points)} documents into Qdrant collection '{COLLECTION}'")
+        else:
+            print("⚠️ No points to index!")
     except Exception as e:
-        print(f"Error indexing documents: {e}")
+        print(f"❌ Error indexing documents: {e}")
 
 def search_rag_database(query: str, limit: int = 3) -> List[Dict]:
     """Search for relevant documents in Qdrant"""
     try:
+        print(f"🔍 Searching Qdrant for query: '{query}'")
         query_embedding = embeddings.embed_query(query)
+        print(f"📊 Generated embedding with {len(query_embedding)} dimensions")
+        
         search_results = qdrant_client.search(
             collection_name=COLLECTION,
             query_vector=query_embedding,
             limit=limit,
-            score_threshold=0.5
+            score_threshold=0.3  # Obniżony próg dla lepszych wyników
         )
+        
+        print(f"✅ Found {len(search_results)} documents in Qdrant")
         
         results = []
         for result in search_results:
-            results.append({
+            doc = {
                 "text": result.payload.get("text", ""),
                 "category": result.payload.get("category", ""),
                 "score": result.score
-            })
+            }
+            results.append(doc)
+            print(f"  📄 Document: {doc['category']} - score: {doc['score']:.3f}")
+        
         return results
     except Exception as e:
-        print(f"Error searching RAG database: {e}")
+        print(f"❌ Error searching RAG database: {e}")
         return []
 
 def assign_category_and_priority(ticket_text: str) -> Dict[str, str]:
@@ -194,7 +211,12 @@ def create_ticket(query: str, additional_info: Optional[str] = None) -> Dict:
 # Initialize collection on startup
 @app.on_event("startup")
 async def startup_event():
+    print("🚀 Starting Agent2 Ticket System...")
+    print(f"   Qdrant URL: {QDRANT_URL}")
+    print(f"   Ollama URL: {OLLAMA_URL}")
+    print(f"   Collection: {COLLECTION}")
     init_qdrant_collection()
+    print("✅ Agent2 Ticket System ready!")
 
 @app.get("/")
 async def root():
@@ -462,3 +484,22 @@ async def list_documents():
 @app.get("/health")
 async def health():
     return {"status": "healthy", "collection": COLLECTION}
+
+@app.post("/reindex")
+async def reindex():
+    """Force reindex all documents from rag_database.json"""
+    try:
+        print("🔄 Force reindexing documents...")
+        index_rag_documents()
+        
+        # Get collection stats
+        collection_info = qdrant_client.get_collection(COLLECTION)
+        
+        return {
+            "status": "success",
+            "message": "Documents reindexed",
+            "collection": COLLECTION,
+            "points_count": collection_info.points_count
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
