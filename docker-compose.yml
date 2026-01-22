@@ -139,7 +139,6 @@ services:
       - "1880:1880"
     volumes:
       - nodered_data:/data
-      - ./nodered/flows:/data/flows:ro
     networks:
       - ai_network
     depends_on:

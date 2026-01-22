@@ -12,7 +12,7 @@ from file_uploader import DocumentUploader, FileProcessor
 
 app = FastAPI()
 llm = ChatOllama(model="llama3", base_url="http://ollama:11434")
-embeddings = OllamaEmbeddings(model="llama3", base_url="http://ollama:11434")
+embeddings = OllamaEmbeddings(model="nomic-embed-text", base_url="http://ollama:11434")
 
 COLLECTION = os.getenv("COLLECTION", "agent2_tickets")
 QDRANT_URL = os.getenv("QDRANT_URL", "http://qdrant:6333")
@@ -25,7 +25,8 @@ qdrant_client = QdrantClient(url=QDRANT_URL)
 document_uploader = DocumentUploader(
     qdrant_url=QDRANT_URL,
     collection_name=COLLECTION,
-    ollama_url=OLLAMA_URL
+    ollama_url=OLLAMA_URL,
+    embeddings_model="nomic-embed-text"
 )
 file_processor = FileProcessor()
 
@@ -52,7 +53,7 @@ def init_qdrant_collection():
         if COLLECTION not in collection_names:
             qdrant_client.create_collection(
                 collection_name=COLLECTION,
-                vectors_config=VectorParams(size=4096, distance=Distance.COSINE)
+                vectors_config=VectorParams(size=768, distance=Distance.COSINE)
             )
             print(f"Created collection: {COLLECTION}")
             
