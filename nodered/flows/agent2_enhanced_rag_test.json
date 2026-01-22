@@ -1,0 +1,677 @@
+[
+    {
+        "id": "test_enhanced_rag",
+        "type": "tab",
+        "label": "Agent2 - Enhanced RAG Test",
+        "disabled": false,
+        "info": "Testy ulepszonego systemu RAG z przeszukiwaniem Qdrant"
+    },
+    {
+        "id": "inject_test1",
+        "type": "inject",
+        "z": "test_enhanced_rag",
+        "name": "Test 1: Pytanie o sieć",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Jak skonfigurować sieć WiFi?\",\"step\":\"initial\"}",
+        "payloadType": "json",
+        "x": 160,
+        "y": 80,
+        "wires": [
+            [
+                "http_agent2"
+            ]
+        ]
+    },
+    {
+        "id": "inject_test2",
+        "type": "inject",
+        "z": "test_enhanced_rag",
+        "name": "Test 2: Pytanie o hasło",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Jak zresetować hasło?\",\"step\":\"initial\"}",
+        "payloadType": "json",
+        "x": 160,
+        "y": 140,
+        "wires": [
+            [
+                "http_agent2"
+            ]
+        ]
+    },
+    {
+        "id": "inject_test3",
+        "type": "inject",
+        "z": "test_enhanced_rag",
+        "name": "Test 3: Trudne pytanie",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Dlaczego mój komputer wybucha?\",\"step\":\"initial\"}",
+        "payloadType": "json",
+        "x": 160,
+        "y": 200,
+        "wires": [
+            [
+                "http_agent2"
+            ]
+        ]
+    },
+    {
+        "id": "inject_test4",
+        "type": "inject",
+        "z": "test_enhanced_rag",
+        "name": "Test 4: Kontynuacja z detalami",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"To dotyczy laptopa Dell z Windows 11\",\"step\":\"need_details\",\"original_query\":\"Dlaczego mój komputer wybucha?\"}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 260,
+        "wires": [
+            [
+                "http_agent2"
+            ]
+        ]
+    },
+    {
+        "id": "inject_test5",
+        "type": "inject",
+        "z": "test_enhanced_rag",
+        "name": "Test 5: Bezpośrednie zgłoszenie",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Potrzebuję nowego monitora\",\"step\":\"create_ticket\"}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 320,
+        "wires": [
+            [
+                "http_agent2"
+            ]
+        ]
+    },
+    {
+        "id": "inject_health",
+        "type": "inject",
+        "z": "test_enhanced_rag",
+        "name": "Health Check",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 130,
+        "y": 400,
+        "wires": [
+            [
+                "http_health"
+            ]
+        ]
+    },
+    {
+        "id": "inject_stats",
+        "type": "inject",
+        "z": "test_enhanced_rag",
+        "name": "Stats - Statystyki kolekcji",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 170,
+        "y": 460,
+        "wires": [
+            [
+                "http_stats"
+            ]
+        ]
+    },
+    {
+        "id": "inject_reindex",
+        "type": "inject",
+        "z": "test_enhanced_rag",
+        "name": "🔄 REINDEX - Załaduj ponownie dokumenty",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 210,
+        "y": 520,
+        "wires": [
+            [
+                "http_reindex"
+            ]
+        ]
+    },
+    {
+        "id": "inject_list_docs",
+        "type": "inject",
+        "z": "test_enhanced_rag",
+        "name": "📚 Lista dokumentów w Qdrant",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 180,
+        "y": 580,
+        "wires": [
+            [
+                "http_list_docs"
+            ]
+        ]
+    },
+    {
+        "id": "http_agent2",
+        "type": "http request",
+        "z": "test_enhanced_rag",
+        "name": "POST /run",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent2_ticket:8000/run",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [
+            {
+                "keyType": "Content-Type",
+                "keyValue": "",
+                "valueType": "other",
+                "valueValue": "application/json"
+            }
+        ],
+        "x": 430,
+        "y": 180,
+        "wires": [
+            [
+                "switch_response",
+                "debug_all"
+            ]
+        ]
+    },
+    {
+        "id": "http_health",
+        "type": "http request",
+        "z": "test_enhanced_rag",
+        "name": "GET /health",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent2_ticket:8000/health",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 430,
+        "y": 400,
+        "wires": [
+            [
+                "debug_health"
+            ]
+        ]
+    },
+    {
+        "id": "http_stats",
+        "type": "http request",
+        "z": "test_enhanced_rag",
+        "name": "GET /stats",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent2_ticket:8000/stats",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 430,
+        "y": 460,
+        "wires": [
+            [
+                "debug_stats"
+            ]
+        ]
+    },
+    {
+        "id": "http_reindex",
+        "type": "http request",
+        "z": "test_enhanced_rag",
+        "name": "POST /reindex",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent2_ticket:8000/reindex",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 450,
+        "y": 520,
+        "wires": [
+            [
+                "debug_reindex"
+            ]
+        ]
+    },
+    {
+        "id": "http_list_docs",
+        "type": "http request",
+        "z": "test_enhanced_rag",
+        "name": "GET /documents",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent2_ticket:8000/documents",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 450,
+        "y": 580,
+        "wires": [
+            [
+                "debug_list_docs"
+            ]
+        ]
+    },
+    {
+        "id": "switch_response",
+        "type": "switch",
+        "z": "test_enhanced_rag",
+        "name": "Analiza odpowiedzi",
+        "property": "payload.step",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "completed",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "need_details",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "ticket_created",
+                "vt": "str"
+            },
+            {
+                "t": "else"
+            }
+        ],
+        "checkall": "false",
+        "repair": false,
+        "outputs": 4,
+        "x": 640,
+        "y": 180,
+        "wires": [
+            [
+                "func_completed"
+            ],
+            [
+                "func_need_details"
+            ],
+            [
+                "func_ticket_created"
+            ],
+            [
+                "debug_error"
+            ]
+        ]
+    },
+    {
+        "id": "func_completed",
+        "type": "function",
+        "z": "test_enhanced_rag",
+        "name": "Format: Odpowiedź znaleziona",
+        "func": "const data = msg.payload;\n\nmsg.payload = {\n    status: \"✅ SUKCES - Znaleziono odpowiedź\",\n    response: data.response,\n    documents_found: data.documents_found || 0,\n    rag_results: data.rag_results || [],\n    collection: data.collection,\n    step: data.step\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 900,
+        "y": 100,
+        "wires": [
+            [
+                "debug_completed"
+            ]
+        ]
+    },
+    {
+        "id": "func_need_details",
+        "type": "function",
+        "z": "test_enhanced_rag",
+        "name": "Format: Potrzeba szczegółów",
+        "func": "const data = msg.payload;\n\nmsg.payload = {\n    status: \"⚠️ BRAK WYNIKÓW - Proszę o więcej szczegółów\",\n    response: data.response,\n    original_query: data.original_query,\n    documents_found: data.documents_found || 0,\n    collection: data.collection,\n    step: data.step,\n    next_action: \"Użyj Test 4 z original_query z tej odpowiedzi\"\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 900,
+        "y": 160,
+        "wires": [
+            [
+                "debug_need_details"
+            ]
+        ]
+    },
+    {
+        "id": "func_ticket_created",
+        "type": "function",
+        "z": "test_enhanced_rag",
+        "name": "Format: Ticket utworzony",
+        "func": "const data = msg.payload;\n\nmsg.payload = {\n    status: \"🎫 TICKET UTWORZONY\",\n    response: data.response,\n    ticket: data.ticket || {},\n    documents_found: data.documents_found || 0,\n    collection: data.collection,\n    step: data.step\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 890,
+        "y": 220,
+        "wires": [
+            [
+                "debug_ticket"
+            ]
+        ]
+    },
+    {
+        "id": "debug_completed",
+        "type": "debug",
+        "z": "test_enhanced_rag",
+        "name": "✅ Odpowiedź znaleziona",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1150,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "debug_need_details",
+        "type": "debug",
+        "z": "test_enhanced_rag",
+        "name": "⚠️ Potrzeba szczegółów",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1150,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "debug_ticket",
+        "type": "debug",
+        "z": "test_enhanced_rag",
+        "name": "🎫 Ticket utworzony",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1140,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "debug_error",
+        "type": "debug",
+        "z": "test_enhanced_rag",
+        "name": "❌ Błąd",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1100,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "debug_all",
+        "type": "debug",
+        "z": "test_enhanced_rag",
+        "name": "📋 Pełna odpowiedź",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 640,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "debug_health",
+        "type": "debug",
+        "z": "test_enhanced_rag",
+        "name": "💚 Health",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 630,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "debug_stats",
+        "type": "debug",
+        "z": "test_enhanced_rag",
+        "name": "📊 Statystyki",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 640,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "debug_reindex",
+        "type": "debug",
+        "z": "test_enhanced_rag",
+        "name": "🔄 Reindex",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 650,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "debug_list_docs",
+        "type": "debug",
+        "z": "test_enhanced_rag",
+        "name": "📚 Dokumenty",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 660,
+        "y": 580,
+        "wires": []
+    },
+    {
+        "id": "comment_info",
+        "type": "comment",
+        "z": "test_enhanced_rag",
+        "name": "⚠️ WAŻNE: Najpierw uruchom REINDEX!",
+        "info": "## KROK 1: REINDEX\nPrzed testami kliknij przycisk '🔄 REINDEX' aby załadować dokumenty do Qdrant!\n\n## Scenariusze testowe:\n\n### Test 1: Pytanie o sieć WiFi\n- Powinno znaleźć dokumenty w Qdrant\n- Ollama przetworzy kontekst i odpowie\n- Status: completed\n\n### Test 2: Pytanie o hasło\n- Przeszukuje bazę dokumentów\n- Generuje odpowiedź z kontekstem\n- Status: completed\n\n### Test 3: Trudne pytanie\n- Pierwsza próba przeszukania Qdrant\n- Prawdopodobnie brak wyników\n- Status: need_details\n\n### Test 4: Kontynuacja\n- Ponowne przeszukanie z dodatkowymi informacjami\n- Może znaleźć dokumenty lub utworzyć ticket\n- Status: completed lub ticket_created\n\n### Test 5: Bezpośrednie zgłoszenie\n- Omija wyszukiwanie\n- Tworzy ticket bezpośrednio\n- Status: ticket_created\n\n## Proces:\n1. REINDEX - Załaduj dokumenty\n2. Zawsze najpierw Qdrant search\n3. Jeśli znaleziono → Ollama z kontekstem\n4. Jeśli nie → Prośba o szczegóły\n5. Jeśli nadal nie → Utworzenie ticketu",
+        "x": 200,
+        "y": 680,
+        "wires": []
+    },
+    {
+        "id": "inject_sequence",
+        "type": "inject",
+        "z": "test_enhanced_rag",
+        "name": "🔄 Sekwencja: Pełny test",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 170,
+        "y": 740,
+        "wires": [
+            [
+                "func_sequence"
+            ]
+        ]
+    },
+    {
+        "id": "func_sequence",
+        "type": "function",
+        "z": "test_enhanced_rag",
+        "name": "Sekwencja testów",
+        "func": "// Przygotuj sekwencję testów\nconst tests = [\n    {\n        name: \"Test 1: WiFi\",\n        payload: {input: \"Jak skonfigurować sieć WiFi?\", step: \"initial\"},\n        delay: 0\n    },\n    {\n        name: \"Test 2: Hasło\",\n        payload: {input: \"Jak zresetować hasło?\", step: \"initial\"},\n        delay: 5000\n    },\n    {\n        name: \"Test 3: Trudne pytanie\",\n        payload: {input: \"Dlaczego mój komputer wybucha?\", step: \"initial\"},\n        delay: 10000\n    },\n    {\n        name: \"Test 4: Kontynuacja\",\n        payload: {\n            input: \"To dotyczy laptopa Dell z Windows 11\",\n            step: \"need_details\",\n            original_query: \"Dlaczego mój komputer wybucha?\"\n        },\n        delay: 15000\n    },\n    {\n        name: \"Test 5: Bezpośrednie zgłoszenie\",\n        payload: {input: \"Potrzebuję nowego monitora\", step: \"create_ticket\"},\n        delay: 20000\n    }\n];\n\n// Wyślij testy z opóźnieniem\ntests.forEach((test, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: test.payload,\n            test_name: test.name,\n            test_number: index + 1\n        });\n    }, test.delay);\n});\n\nnode.status({fill: \"blue\", shape: \"dot\", text: \"Sekwencja uruchomiona - 5s między testami\"});\n\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 740,
+        "wires": [
+            [
+                "http_agent2"
+            ]
+        ]
+    }
+]
