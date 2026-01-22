@@ -113,12 +113,12 @@ def search_rag_database(query: str, limit: int = 3) -> List[Dict]:
         query_embedding = embeddings.embed_query(query)
         print(f"📊 Generated embedding with {len(query_embedding)} dimensions")
         
-        search_results = qdrant_client.search(
+        search_results = qdrant_client.query_points(
             collection_name=COLLECTION,
-            query_vector=query_embedding,
+            query=query_embedding,
             limit=limit,
-            score_threshold=0.3  # Obniżony próg dla lepszych wyników
-        )
+            score_threshold=0.1  # Bardzo niski próg dla maksymalnego zasięgu
+        ).points
         
         print(f"✅ Found {len(search_results)} documents in Qdrant")
         
