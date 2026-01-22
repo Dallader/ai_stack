@@ -56,11 +56,11 @@ def init_qdrant_collection():
                 vectors_config=VectorParams(size=768, distance=Distance.COSINE)
             )
             print(f"Created collection: {COLLECTION}")
-            
-            # Index RAG documents
-            index_rag_documents()
         else:
             print(f"Collection {COLLECTION} already exists")
+        
+        # Always index RAG documents on startup to ensure fresh data
+        index_rag_documents()
     except Exception as e:
         print(f"Error initializing Qdrant: {e}")
 
