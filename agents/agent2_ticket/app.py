@@ -208,7 +208,7 @@ async def get_upload_form():
 
 @app.post("/run")
 async def run(payload: dict):
-    """Main endpoint for processing queries"""
+    """Main endpoint for processing queries - ZAWSZE przeszukuje najpierw bazę Qdrant"""
     query = payload.get("input", "")
     step = payload.get("step", "initial")  # Track conversation step
     additional_info = payload.get("additional_info", None)
@@ -216,93 +216,102 @@ async def run(payload: dict):
     if not query:
         raise HTTPException(status_code=400, detail="Input query is required")
     
-    # Step 1: Search RAG database
-    if step == "initial":
-        rag_results = search_rag_database(query)
+    # KROK 1: ZAWSZE najpierw przeszukaj bazę danych Qdrant
+    search_query = query
+    original_query = query
+    
+    # Jeśli to kontynuacja, połącz zapytania
+    if step == "need_details" and payload.get("original_query"):
+        original_query = payload.get("original_query")
+        search_query = f"{original_query} {query}"
+    
+    # Przeszukaj bazę dokumentów w Qdrant
+    rag_results = search_rag_database(search_query, limit=5)
+    
+    # KROK 2: Jeśli znaleziono dokumenty, użyj LLM do wygenerowania odpowiedzi
+    if rag_results:
+        context = "\n".join([f"- {r['text']} (kategoria: {r['category']}, score: {r['score']:.2f})" 
+                            for r in rag_results])
         
-        if rag_results:
-            # Found relevant documents
-            context = "\n".join([f"- {r['text']}" for r in rag_results])
-            prompt = f"""Na podstawie następujących dokumentów odpowiedz na pytanie użytkownika.
+        # Przygotuj prompt z kontekstem
+        if step == "need_details":
+            prompt = f"""Na podstawie następujących dokumentów z bazy wiedzy odpowiedz na pytanie użytkownika.
 
-Dokumenty:
+Dokumenty z bazy wiedzy:
+{context}
+
+Pytanie początkowe: {original_query}
+Dodatkowe informacje: {query}
+
+Przeanalizuj dokumenty i udziel pomocnej, zwięzłej odpowiedzi po polsku. Jeśli dokumenty nie zawierają pełnej odpowiedzi, powiedz o tym."""
+        else:
+            prompt = f"""Na podstawie następujących dokumentów z bazy wiedzy odpowiedz na pytanie użytkownika.
+
+Dokumenty z bazy wiedzy:
 {context}
 
 Pytanie: {query}
 
-Odpowiedz w sposób pomocny i zwięzły po polsku."""
-            
-            response = llm.invoke(prompt)
-            return {
-                "response": response.content,
-                "rag_results": rag_results,
-                "step": "completed",
-                "collection": COLLECTION
-            }
-        else:
-            # No results, ask for more details
-            return {
-                "response": "Nie znalazłem odpowiedzi w bazie dokumentów. Czy możesz podać dodatkowe szczegóły?",
-                "step": "need_details",
-                "original_query": query,
-                "collection": COLLECTION
-            }
+Przeanalizuj dokumenty i udziel pomocnej, zwięzłej odpowiedzi po polsku. Jeśli dokumenty nie zawierają pełnej odpowiedzi, powiedz o tym."""
+        
+        # Wywołaj LLM z kontekstem z Qdrant
+        response = llm.invoke(prompt)
+        
+        return {
+            "response": response.content,
+            "rag_results": rag_results,
+            "documents_found": len(rag_results),
+            "step": "completed",
+            "collection": COLLECTION
+        }
     
-    # Step 2: User provided additional info, search again
+    # KROK 3: Brak wyników - obsłuż według kroku
+    if step == "initial":
+        # Pierwsze zapytanie bez wyników - poproś o więcej szczegółów
+        return {
+            "response": "Nie znalazłem odpowiedzi w bazie dokumentów. Czy możesz podać więcej szczegółów lub przeformułować pytanie?",
+            "step": "need_details",
+            "original_query": query,
+            "documents_found": 0,
+            "collection": COLLECTION
+        }
+    
     elif step == "need_details":
-        original_query = payload.get("original_query", query)
-        combined_query = f"{original_query} {query}"
+        # Nadal brak wyników po dodatkowych szczegółach - utwórz zgłoszenie
+        ticket = create_ticket(original_query, query)
         
-        rag_results = search_rag_database(combined_query)
-        
-        if rag_results:
-            context = "\n".join([f"- {r['text']}" for r in rag_results])
-            prompt = f"""Na podstawie następujących dokumentów odpowiedz na pytanie użytkownika.
+        response_text = f"""Przepraszam, nie znalazłem odpowiedzi w bazie dokumentów nawet po dodatkowych szczegółach. 
 
-Dokumenty:
-{context}
-
-Pytanie: {original_query}
-Dodatkowe informacje: {query}
-
-Odpowiedz w sposób pomocny i zwięzły po polsku."""
-            
-            response = llm.invoke(prompt)
-            return {
-                "response": response.content,
-                "rag_results": rag_results,
-                "step": "completed",
-                "collection": COLLECTION
-            }
-        else:
-            # Still no results, create ticket
-            ticket = create_ticket(original_query, query)
-            
-            response_text = f"""Nie znalazłem odpowiedzi w bazie dokumentów. Utworzyłem zgłoszenie:
-
-Kategoria: {ticket['category']}
-Priorytet: {ticket['priority']}
+Utworzyłem zgłoszenie:
+- Kategoria: {ticket['category']}
+- Priorytet: {ticket['priority']}
 
 Powiadomiłem Ciebie i dział BOS e-mailem. Czy mogę pomóc w czymś jeszcze?"""
-            
-            return {
-                "response": response_text,
-                "ticket": ticket,
-                "step": "ticket_created",
-                "collection": COLLECTION
-            }
+        
+        return {
+            "response": response_text,
+            "ticket": ticket,
+            "step": "ticket_created",
+            "documents_found": 0,
+            "collection": COLLECTION
+        }
     
-    # Direct ticket creation
+    # KROK 4: Bezpośrednie tworzenie zgłoszenia (tylko gdy użytkownik jawnie o to poprosi)
     elif step == "create_ticket":
         ticket = create_ticket(query, additional_info)
         return {
             "ticket": ticket,
             "response": f"Zgłoszenie utworzone. Kategoria: {ticket['category']}, Priorytet: {ticket['priority']}",
             "step": "ticket_created",
+            "documents_found": 0,
             "collection": COLLECTION
         }
     
-    return {"error": "Unknown step", "collection": COLLECTION}
+    return {
+        "error": "Unknown step",
+        "documents_found": 0,
+        "collection": COLLECTION
+    }
 
 @app.post("/upload")
 async def upload_file(
