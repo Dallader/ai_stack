@@ -13,7 +13,7 @@ services:
       - ai_network
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:tinyllama
     container_name: ollama
     restart: unless-stopped
     ports:
