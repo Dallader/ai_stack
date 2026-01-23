@@ -11,6 +11,8 @@ services:
       - qdrant_data:/qdrant/storage
     networks:
       - ai_network
+    profiles:
+      - necessary
 
   ollama:
     image: ollama/ollama:latest
@@ -22,6 +24,11 @@ services:
       - ollama_data:/root/.ollama
     networks:
       - ai_network
+    environment:
+      - OLLAMA_CONTEXT_LENGTH=2048
+      - OLLAMA_NUM_THREADS=6
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_QUEUE=64
     deploy:
       resources:
         limits:
@@ -30,7 +37,7 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "ollama list || exit 1"]
       interval: 30s
-      timeout: 10s
+      timeout: 1000s
       retries: 3
       start_period: 40s
     entrypoint: ["/bin/bash", "-c"]
@@ -42,6 +49,8 @@ services:
       ollama pull llama3.2:1b && 
       ollama pull nomic-embed-text &&
       wait $pid"
+    profiles:
+      - necessary
 
   # WebUI (depends on Ollama)
   open-webui:
@@ -74,6 +83,10 @@ services:
       - COLLECTION=agent1_student
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=tinyllama
+      - OLLAMA_NUM_CTX=2048
+      - OLLAMA_NUM_PREDICT=256
+      - OLLAMA_TEMPERATURE=0.2
     depends_on:
       - qdrant
       - ollama
@@ -92,6 +105,13 @@ services:
       - COLLECTION=agent2_tickets
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=tinyllama
+      - OLLAMA_NUM_CTX=2048
+      - OLLAMA_NUM_PREDICT=256
+      - OLLAMA_TEMPERATURE=0.2
+      - RAG_LIMIT=3
+      - OLLAMA_MAX_CONTEXT_CHARS=4000
+      - OLLAMA_MAX_DOC_CHARS=800
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 30s
@@ -103,6 +123,8 @@ services:
         condition: service_started
       ollama:
         condition: service_healthy
+    profiles:
+      - necessary
 
   agent3_analytics:
     build:
@@ -118,6 +140,10 @@ services:
       - COLLECTION=agent3_stats
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=tinyllama
+      - OLLAMA_NUM_CTX=2048
+      - OLLAMA_NUM_PREDICT=256
+      - OLLAMA_TEMPERATURE=0.2
     depends_on:
       - qdrant
       - ollama
@@ -136,6 +162,10 @@ services:
       - COLLECTION=agent4_bos
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=tinyllama
+      - OLLAMA_NUM_CTX=2048
+      - OLLAMA_NUM_PREDICT=256
+      - OLLAMA_TEMPERATURE=0.2
     depends_on:
       - qdrant
       - ollama
@@ -154,6 +184,10 @@ services:
       - COLLECTION=agent5_audit
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=tinyllama
+      - OLLAMA_NUM_CTX=2048
+      - OLLAMA_NUM_PREDICT=256
+      - OLLAMA_TEMPERATURE=0.2
     depends_on:
       - qdrant
       - ollama
@@ -169,12 +203,8 @@ services:
       - nodered_data:/data
     networks:
       - ai_network
-    depends_on:
-      - agent1_student
-      - agent2_ticket
-      - agent3_analytics
-      - agent4_bos
-      - agent5_security
+    profiles:
+      - necessary
 
 volumes:
   qdrant_data:
