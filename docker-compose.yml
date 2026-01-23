@@ -84,8 +84,8 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=tinyllama
-      - OLLAMA_NUM_CTX=2048
-      - OLLAMA_NUM_PREDICT=256
+      - OLLAMA_NUM_CTX=1024
+      - OLLAMA_NUM_PREDICT=128
       - OLLAMA_TEMPERATURE=0.2
     depends_on:
       - qdrant
@@ -106,12 +106,14 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=tinyllama
-      - OLLAMA_NUM_CTX=2048
-      - OLLAMA_NUM_PREDICT=256
+      - OLLAMA_NUM_CTX=1024
+      - OLLAMA_NUM_PREDICT=128
       - OLLAMA_TEMPERATURE=0.2
+      - OLLAMA_REQUEST_TIMEOUT=45
       - RAG_LIMIT=3
-      - OLLAMA_MAX_CONTEXT_CHARS=4000
-      - OLLAMA_MAX_DOC_CHARS=800
+      - OLLAMA_MAX_CONTEXT_CHARS=2000
+      - OLLAMA_MAX_DOC_CHARS=500
+      - FAST_RAG_ONLY=true
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 30s
@@ -141,8 +143,8 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=tinyllama
-      - OLLAMA_NUM_CTX=2048
-      - OLLAMA_NUM_PREDICT=256
+      - OLLAMA_NUM_CTX=1024
+      - OLLAMA_NUM_PREDICT=128
       - OLLAMA_TEMPERATURE=0.2
     depends_on:
       - qdrant
@@ -163,8 +165,8 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=tinyllama
-      - OLLAMA_NUM_CTX=2048
-      - OLLAMA_NUM_PREDICT=256
+      - OLLAMA_NUM_CTX=1024
+      - OLLAMA_NUM_PREDICT=128
       - OLLAMA_TEMPERATURE=0.2
     depends_on:
       - qdrant
@@ -185,8 +187,8 @@ services:
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=tinyllama
-      - OLLAMA_NUM_CTX=2048
-      - OLLAMA_NUM_PREDICT=256
+      - OLLAMA_NUM_CTX=1024
+      - OLLAMA_NUM_PREDICT=128
       - OLLAMA_TEMPERATURE=0.2
     depends_on:
       - qdrant

@@ -42,16 +42,19 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "tinyllama")
 OLLAMA_NUM_CTX = int(os.getenv("OLLAMA_NUM_CTX", "2048"))
 OLLAMA_NUM_PREDICT = int(os.getenv("OLLAMA_NUM_PREDICT", "256"))
 OLLAMA_TEMPERATURE = float(os.getenv("OLLAMA_TEMPERATURE", "0.2"))
+OLLAMA_REQUEST_TIMEOUT = float(os.getenv("OLLAMA_REQUEST_TIMEOUT", "45"))
 RAG_LIMIT = int(os.getenv("RAG_LIMIT", "3"))
 MAX_CONTEXT_CHARS = int(os.getenv("OLLAMA_MAX_CONTEXT_CHARS", "4000"))
 MAX_DOC_CHARS = int(os.getenv("OLLAMA_MAX_DOC_CHARS", "800"))
+FAST_RAG_ONLY = os.getenv("FAST_RAG_ONLY", "false").lower() in {"1", "true", "yes"}
 
 llm = ChatOllama(
     model=OLLAMA_MODEL,
     base_url=OLLAMA_URL,
     num_ctx=OLLAMA_NUM_CTX,
     num_predict=OLLAMA_NUM_PREDICT,
-    temperature=OLLAMA_TEMPERATURE
+    temperature=OLLAMA_TEMPERATURE,
+    request_timeout=OLLAMA_REQUEST_TIMEOUT
 )
 embeddings = OllamaEmbeddings(
     model="nomic-embed-text",
@@ -246,6 +249,18 @@ def build_context(rag_results: List[Dict]) -> str:
         context = context[:MAX_CONTEXT_CHARS] + "..."
     return context
 
+def fast_answer_from_rag(rag_results: List[Dict]) -> str:
+    """Return a quick response without calling the LLM."""
+    top = rag_results[0]
+    snippet = top["text"].strip()
+    if len(snippet) > 600:
+        snippet = snippet[:600] + "..."
+    return (
+        "Znalazłem informacje w dokumentacji. Oto najtrafniejszy fragment:\n\n"
+        f"{snippet}\n\n"
+        "Jeśli potrzebujesz bardziej szczegółowej odpowiedzi, doprecyzuj pytanie."
+    )
+
 # Initialize collection on startup
 @app.on_event("startup")
 async def startup_event():
@@ -439,13 +454,21 @@ async def run(payload: dict):
             prompt_template = agent_behavior.get("llm_prompts", {}).get("generate_answer", "")
             prompt = prompt_template.format(context=context, query=query)
             
-            response = llm.invoke(prompt)
+            if FAST_RAG_ONLY:
+                response_text = fast_answer_from_rag(rag_results)
+            else:
+                try:
+                    response = llm.invoke(prompt)
+                    response_text = response.content
+                except Exception as e:
+                    print(f"⚠️ LLM timeout/error: {e}")
+                    response_text = fast_answer_from_rag(rag_results)
             
             # STEP 11: Ask if can help with something else
             ask_continue = behavior.get("ask_continue", "Czy mogę pomóc w czymś jeszcze?")
             
             return {
-                "response": f"{response.content}\n\n{ask_continue}",
+                "response": f"{response_text}\n\n{ask_continue}",
                 "rag_results": rag_results,
                 "documents_found": len(rag_results),
                 "step": "answer_provided",
@@ -486,11 +509,19 @@ async def run(payload: dict):
             prompt_template = agent_behavior.get("llm_prompts", {}).get("generate_answer_with_details", "")
             prompt = prompt_template.format(context=context, original_query=original_query, query=query)
             
-            response = llm.invoke(prompt)
+            if FAST_RAG_ONLY:
+                response_text = fast_answer_from_rag(rag_results)
+            else:
+                try:
+                    response = llm.invoke(prompt)
+                    response_text = response.content
+                except Exception as e:
+                    print(f"⚠️ LLM timeout/error: {e}")
+                    response_text = fast_answer_from_rag(rag_results)
             ask_continue = behavior.get("ask_continue", "Czy mogę pomóc w czymś jeszcze?")
             
             return {
-                "response": f"{response.content}\n\n{ask_continue}",
+                "response": f"{response_text}\n\n{ask_continue}",
                 "rag_results": rag_results,
                 "documents_found": len(rag_results),
                 "step": "answer_provided",
