@@ -1,16 +1,20 @@
 {
-    "tickets_categories": [
+    "priorities": [
         {
-            "name": "Akademickie",
-            "priority": "Wysoki"
+            "level": "P1",
+            "name": "Critical"
         },
         {
-            "name": "Administracyjne",
-            "priority": "Średni"
+            "level": "P2",
+            "name": "High"
         },
         {
-            "name": "Inne",
-            "priority": "Niski"
+            "level": "P3",
+            "name": "Medium"
+        },
+        {
+            "level": "P4",
+            "name": "Low"
         }
     ]
 }
