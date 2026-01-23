@@ -13,7 +13,7 @@ services:
       - ai_network
 
   ollama:
-    image: ollama/ollama:tinyllama
+    image: ollama/ollama:latest
     container_name: ollama
     restart: unless-stopped
     ports:
@@ -22,6 +22,14 @@ services:
       - ollama_data:/root/.ollama
     networks:
       - ai_network
+    entrypoint: ["/bin/bash", "-c"]
+    command: >
+      "ollama serve & 
+      pid=$! && 
+      sleep 10 && 
+      ollama pull tinyllama && 
+      ollama pull llama3.2:1b && 
+      wait $pid"
 
   # WebUI (depends on Ollama)
   open-webui:
