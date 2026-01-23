@@ -5,7 +5,7 @@ from langchain_community.chat_models import ChatOllama
 app = FastAPI()
 
 llm = ChatOllama(
-    model="llama3",
+    model="tinyllama",
     base_url="http://ollama:11434"
 )
 
