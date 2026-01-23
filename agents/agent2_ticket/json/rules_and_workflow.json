@@ -1,27 +1,152 @@
 {
-    "rules": [
-        {
-            "trigger": "*",
-            "response": "Sprawdzam bazę dokumentów dla Twojego pytania: '{query}'...",
-            "next": {
-                "trigger": "*",
-                "save_as": "query",
-                "response": "Nie znalazłem odpowiedzi. Czy możesz podać dodatkowe szczegóły?",
-                "next": {
-                    "trigger": "*",
-                    "save_as": "additional_info",
-                    "response": "Sprawdzam ponownie bazę dokumentów z dodatkowymi informacjami...",
-                    "next": {
-                        "trigger": "*",
-                        "response": "Nie znalazłem odpowiedzi. Nadaję kategorię, priorytet i tworzę zgłoszenie...",
-                        "next": {
-                            "trigger": "*",
-                            "save_as": "category",
-                            "response": "Zgłoszenie utworzone.\nKategoria: {category}\nPriorytet: {priority}\nPowiadomiłem Ciebie i dział BOS e-mailem.\nCzy mogę pomóc w czymś jeszcze lub masz kolejne pytanie?"
+    "workflow": {
+        "description": "Agent WSB Merito workflow for handling user queries and ticket creation",
+        "steps": [
+            {
+                "step": 1,
+                "name": "greeting",
+                "action": "greet_user",
+                "message": "Use greeting from agent_behavior.json",
+                "next_step": 2
+            },
+            {
+                "step": 2,
+                "name": "ask_for_help",
+                "action": "ask_how_to_help",
+                "message": "Use ask_for_help from agent_behavior.json",
+                "next_step": 3
+            },
+            {
+                "step": 3,
+                "name": "receive_query",
+                "action": "receive_user_prompt",
+                "save_as": "user_query",
+                "next_step": 4
+            },
+            {
+                "step": 4,
+                "name": "search_qdrant",
+                "action": "search_qdrant_database",
+                "message": "Use searching_message from agent_behavior.json",
+                "search_params": {
+                    "collection": "agent2_tickets",
+                    "limit": 5,
+                    "score_threshold": 0.3
+                },
+                "on_success": 5,
+                "on_no_results": 6
+            },
+            {
+                "step": 5,
+                "name": "generate_answer",
+                "action": "generate_answer_with_ollama",
+                "use_context_from": "qdrant_results",
+                "message": "Generate answer using LLM with Qdrant context",
+                "next_step": 11
+            },
+            {
+                "step": 6,
+                "name": "ask_details",
+                "action": "ask_for_more_details",
+                "message": "Use ask_for_details from agent_behavior.json",
+                "next_step": 7
+            },
+            {
+                "step": 7,
+                "name": "receive_details",
+                "action": "receive_additional_details",
+                "save_as": "additional_info",
+                "next_step": 8
+            },
+            {
+                "step": 8,
+                "name": "search_with_details",
+                "action": "search_qdrant_with_details",
+                "message": "Use searching_with_details from agent_behavior.json",
+                "combine_queries": [
+                    "user_query",
+                    "additional_info"
+                ],
+                "on_success": 5,
+                "on_no_results": 9
+            },
+            {
+                "step": 9,
+                "name": "ask_create_ticket",
+                "action": "ask_if_create_ticket",
+                "message": "Use ask_create_ticket from agent_behavior.json",
+                "next_step": 10
+            },
+            {
+                "step": 10,
+                "name": "classify_and_create_ticket",
+                "action": "classify_ticket",
+                "message": "Use classifying_ticket from agent_behavior.json",
+                "substeps": [
+                    {
+                        "action": "analyze_query_with_llm",
+                        "description": "Use LLM to determine ticket category and priority"
+                    },
+                    {
+                        "action": "assign_priority",
+                        "priorities": [
+                            "P1",
+                            "P2",
+                            "P3",
+                            "P4"
+                        ]
+                    },
+                    {
+                        "action": "generate_ticket_number",
+                        "format": "TICKET-{timestamp}-{random}"
+                    },
+                    {
+                        "action": "estimate_resolution_time",
+                        "based_on": "priority"
+                    },
+                    {
+                        "action": "store_ticket_in_qdrant",
+                        "payload": {
+                            "type": "ticket",
+                            "query": "user_query",
+                            "additional_info": "additional_info",
+                            "category": "determined_category",
+                            "priority": "determined_priority",
+                            "ticket_number": "generated_number",
+                            "status": "created",
+                            "created_at": "timestamp"
                         }
+                    },
+                    {
+                        "action": "send_notifications",
+                        "recipients": [
+                            "user",
+                            "support_team"
+                        ]
                     }
-                }
+                ],
+                "next_step": 11
+            },
+            {
+                "step": 11,
+                "name": "ask_continue",
+                "action": "ask_if_help_needed",
+                "message": "Use ask_continue from agent_behavior.json",
+                "on_yes": 3,
+                "on_no": 12
+            },
+            {
+                "step": 12,
+                "name": "farewell",
+                "action": "say_goodbye",
+                "message": "Use farewell from agent_behavior.json",
+                "end": true
             }
-        }
-    ]
+        ]
+    },
+    "error_handling": {
+        "on_qdrant_error": "Use error_response and retry or create ticket",
+        "on_llm_error": "Use error_response and offer to create ticket",
+        "on_ticket_creation_error": "Notify user and log error"
+    }
 }

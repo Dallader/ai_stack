@@ -4,11 +4,30 @@ Command-line utility to upload files to Qdrant for Agent 2 Ticket System
 """
 
 import sys
+import json
 import argparse
 from pathlib import Path
 from file_uploader import DocumentUploader
 
+def load_host_settings():
+    """Load host settings from JSON file"""
+    try:
+        with open('host_settings.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Warning: Could not load host_settings.json: {e}")
+        return {}
+
 def main():
+    # Load host settings
+    host_settings = load_host_settings()
+    is_local = host_settings.get('local ', True)
+    local_host = host_settings.get('local_host', 'localhost')
+    server_host = host_settings.get('server_host', '192.168.0.76')
+
+    active_host = local_host if is_local else server_host
+    default_qdrant = f'http://{active_host}:6333'
+    default_ollama = f'http://{active_host}:11434'
     parser = argparse.ArgumentParser(
         description='Upload documents to Qdrant vector database'
     )
@@ -28,13 +47,13 @@ def main():
     )
     parser.add_argument(
         '--qdrant-url',
-        default='http://192.168.0.76:6333',
-        help='Qdrant URL (default: http://192.168.0.76:6333)'
+        default=default_qdrant,
+        help=f'Qdrant URL (default: {default_qdrant})'
     )
     parser.add_argument(
         '--ollama-url',
-        default='http://192.168.0.76:11434',
-        help='Ollama URL (default: http://192.168.0.76:11434)'
+        default=default_ollama,
+        help=f'Ollama URL (default: {default_ollama})'
     )
     parser.add_argument(
         '-r', '--recursive',
@@ -71,14 +90,14 @@ def main():
         )
         
         if "error" in result:
-            print(f"❌ Error: {result['error']}")
+            print(f" Error: {result['error']}")
             sys.exit(1)
         else:
-            print(f"✅ Success!")
-            print(f"   Filename: {result['filename']}")
-            print(f"   Chunks uploaded: {result['chunks_uploaded']}")
-            print(f"   Category: {result['category']}")
-            print(f"   Collection: {result['collection']}")
+            print(f" Success!")
+            print(f" Filename: {result['filename']}")
+            print(f" Chunks uploaded: {result['chunks_uploaded']}")
+            print(f" Category: {result['category']}")
+            print(f" Collection: {result['collection']}")
     
     elif path.is_dir():
         print(f"Uploading directory: {path}")
@@ -96,10 +115,10 @@ def main():
         error_count = len(results) - success_count
         
         print(f"\n{'='*50}")
-        print(f"Upload Summary:")
-        print(f"  Total files processed: {len(results)}")
-        print(f"  ✅ Successful: {success_count}")
-        print(f"  ❌ Errors: {error_count}")
+        print(f" Upload Summary:")
+        print(f" Total files processed: {len(results)}")
+        print(f" Successful: {success_count}")
+        print(f" Errors: {error_count}")
         
         if error_count > 0:
             print(f"\nErrors:")
@@ -120,17 +139,17 @@ def main():
         if "error" in stats:
             print(f"  Error: {stats['error']}")
         else:
-            print(f"  Collection: {stats['collection_name']}")
-            print(f"  Total points: {stats['total_points']}")
-            print(f"  Vector size: {stats['vector_size']}")
+            print(f" Collection: {stats['collection_name']}")
+            print(f" Total points: {stats['total_points']}")
+            print(f" Vector size: {stats['vector_size']}")
             
             if stats['document_types']:
-                print(f"\n  Document Types:")
+                print(f"\n Document Types:")
                 for doc_type, count in stats['document_types'].items():
                     print(f"    - {doc_type}: {count}")
             
             if stats['categories']:
-                print(f"\n  Categories:")
+                print(f"\n Categories:")
                 for category, count in stats['categories'].items():
                     print(f"    - {category}: {count}")
 

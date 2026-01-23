@@ -4,14 +4,41 @@ from typing import Optional, Dict, List
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from langchain_community.chat_models import ChatOllama
 from langchain_community.embeddings import OllamaEmbeddings
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
 from file_uploader import DocumentUploader, FileProcessor
 
+# Load host settings
+def load_host_settings() -> dict:
+    try:
+        with open("host_settings.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Warning: Could not load host_settings.json: {e}")
+        return {}
+
+host_settings = load_host_settings()
+IS_LOCAL = host_settings.get("local ", True)  # Note: key has trailing space in JSON
+VECTOR_SIZE = int(host_settings.get("vector_size", "4096"))
+SCORE_THRESHOLD = float(host_settings.get("score_threshold", 0.3))
+LOCAL_HOST = host_settings.get("local_host", "localhost")
+SERVER_HOST = host_settings.get("server_host", "192.168.0.76")
+
 app = FastAPI()
-llm = ChatOllama(model="llama3", base_url="http://ollama:11434")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+llm = ChatOllama(model="tinyllama", base_url="http://ollama:11434")
 embeddings = OllamaEmbeddings(model="nomic-embed-text", base_url="http://ollama:11434")
 
 COLLECTION = os.getenv("COLLECTION", "agent2_tickets")
@@ -41,7 +68,6 @@ def load_json_file(filename: str) -> dict:
 
 agent_behavior = load_json_file("agent_behavior.json")
 categories_data = load_json_file("categories.json")
-rag_database = load_json_file("rag_database.json")
 rules_workflow = load_json_file("rules_and_workflow.json")
 
 # Initialize Qdrant collection
@@ -53,74 +79,43 @@ def init_qdrant_collection():
         if COLLECTION not in collection_names:
             qdrant_client.create_collection(
                 collection_name=COLLECTION,
-                vectors_config=VectorParams(size=4096, distance=Distance.COSINE)
+                vectors_config=VectorParams(size=VECTOR_SIZE, distance=Distance.COSINE)
             )
-            print(f"Created collection: {COLLECTION}")
+            print(f"Created collection: {COLLECTION} with {VECTOR_SIZE} dimensions")
         else:
             print(f"Collection {COLLECTION} already exists")
-        
-        # Always index RAG documents on startup to ensure fresh data
-        index_rag_documents()
     except Exception as e:
         print(f"Error initializing Qdrant: {e}")
 
-def index_rag_documents():
-    """Index documents from rag_database.json into Qdrant"""
-    try:
-        print("📚 Starting document indexing...")
-        documents = rag_database.get("documents", {})
-        
-        if not documents:
-            print("⚠️ No documents found in rag_database.json!")
-            return
-        
-        points = []
-        point_id = 1
-        
-        for category, docs in documents.items():
-            print(f"  📂 Category: {category} ({len(docs)} documents)")
-            for doc in docs:
-                text = f"{category}: {doc}"
-                embedding = embeddings.embed_query(text)
-                
-                point = PointStruct(
-                    id=point_id,
-                    vector=embedding,
-                    payload={
-                        "text": doc,
-                        "category": category,
-                        "type": "rag_document"
-                    }
-                )
-                points.append(point)
-                point_id += 1
-        
-        if points:
-            qdrant_client.upsert(
-                collection_name=COLLECTION,
-                points=points
-            )
-            print(f"✅ Indexed {len(points)} documents into Qdrant collection '{COLLECTION}'")
-        else:
-            print("⚠️ No points to index!")
-    except Exception as e:
-        print(f"❌ Error indexing documents: {e}")
+def preprocess_query(query: str) -> str:
+    """Preprocess and expand query for better search results"""
+    # Remove common filler words that don't add semantic value
+    filler_words = ['proszę', 'chciałbym', 'czy możesz', 'jak mogę']
+    processed = query.lower()
+    for word in filler_words:
+        processed = processed.replace(word, '')
+    return processed.strip()
 
 def search_rag_database(query: str, limit: int = 3) -> List[Dict]:
-    """Search for relevant documents in Qdrant"""
+    """Search for relevant documents in Qdrant with improved relevance"""
     try:
-        print(f"🔍 Searching Qdrant for query: '{query}'")
+        print(f" Searching Qdrant for query: '{query}'")
+        
+        # Preprocess query for better matching
+        processed_query = preprocess_query(query)
+        print(f" Processed query: '{processed_query}'")
+        
         query_embedding = embeddings.embed_query(query)
-        print(f"📊 Generated embedding with {len(query_embedding)} dimensions")
+        print(f" Generated embedding with {len(query_embedding)} dimensions")
         
-        search_results = qdrant_client.search(
+        search_results = qdrant_client.query_points(
             collection_name=COLLECTION,
-            query_vector=query_embedding,
+            query=query_embedding,
             limit=limit,
-            score_threshold=0.3  # Obniżony próg dla lepszych wyników
-        )
+            score_threshold=SCORE_THRESHOLD  # Use threshold from host_settings
+        ).points
         
-        print(f"✅ Found {len(search_results)} documents in Qdrant")
+        print(f" Found {len(search_results)} documents in Qdrant")
         
         results = []
         for result in search_results:
@@ -130,210 +125,353 @@ def search_rag_database(query: str, limit: int = 3) -> List[Dict]:
                 "score": result.score
             }
             results.append(doc)
-            print(f"  📄 Document: {doc['category']} - score: {doc['score']:.3f}")
+            print(f" Document: {doc['category']} - score: {doc['score']:.3f}")
         
         return results
     except Exception as e:
-        print(f"❌ Error searching RAG database: {e}")
+        print(f" Error searching RAG database: {e}")
         return []
 
-def assign_category_and_priority(ticket_text: str) -> Dict[str, str]:
-    """Assign category and priority to ticket using LLM"""
-    categories = categories_data.get("categories", [])
-    categories_str = "\n".join([f"- {cat['name']} (Priorytet: {cat['priority']})" 
-                                for cat in categories])
+def assign_priority(ticket_text: str) -> Dict[str, str]:
+    """Assign priority to ticket using LLM"""
+    priorities = categories_data.get("priorities", [])
+    priorities_str = "\n".join([f"- {p['level']} ({p['name']})" for p in priorities])
     
-    prompt = f"""Przeanalizuj poniższe zgłoszenie i przypisz je do odpowiedniej kategorii.
+    prompt = f"""Przeanalizuj poniższe zgłoszenie i określ jego priorytet.
     
-Dostępne kategorie:
-{categories_str}
+Dostępne priorytety:
+{priorities_str}
 
 Zgłoszenie: {ticket_text}
 
-Odpowiedz w formacie JSON:
-{{"category": "nazwa kategorii", "priority": "priorytet"}}
+Określ priorytet na podstawie:
+- P1 (Critical): Krytyczny problem blokujący pracę, wymaga natychmiastowej reakcji
+- P2 (High):Ważny problem wpływający na pracę, wymaga szybkiej reakcji
+- P3 (Medium): Umiarkowany problem, standardowy czas reakcji
+- P4 (Low): Niski priorytet, można obsłużyć w kolejności
+
+Odpowiedz TYLKO literą i cyfrą priorytetu (P1, P2, P3 lub P4):
 """
     
     try:
         response = llm.invoke(prompt)
-        # Try to parse JSON from response
-        content = response.content.strip()
-        if content.startswith("```json"):
-            content = content.replace("```json", "").replace("```", "").strip()
+        content = response.content.strip().upper()
         
-        result = json.loads(content)
-        return {
-            "category": result.get("category", "Nieprzypisana"),
-            "priority": result.get("priority", "Średni")
-        }
+        # Extract priority level (P1, P2, P3, P4)
+        for p in priorities:
+            if p['level'] in content:
+                return {
+                    "priority": p['level'],
+                    "priority_name": p['name']
+                }
+        
+        # Default to P3 if can't determine
+        return {"priority": "P3", "priority_name": "Medium"}
     except Exception as e:
-        print(f"Error assigning category: {e}")
-        return {"category": "Nieprzypisana", "priority": "Średni"}
+        print(f"Error assigning priority: {e}")
+        return {"priority": "P3", "priority_name": "Medium"}
+
+def generate_ticket_number() -> str:
+    """Generate unique ticket number"""
+    import time
+    import random
+    timestamp = int(time.time())
+    random_num = random.randint(1000, 9999)
+    return f"TICKET-{timestamp}-{random_num}"
+
+def get_estimated_time(priority: str) -> str:
+    """Get estimated resolution time based on priority"""
+    estimated_times = agent_behavior.get("ticket_estimated_times", {})
+    return estimated_times.get(priority, "3-5 dni")
 
 def create_ticket(query: str, additional_info: Optional[str] = None) -> Dict:
-    """Create a ticket with category and priority"""
+    """Create a ticket with priority, ticket number, and estimated resolution time"""
+    import time
+    
     full_text = f"{query}"
     if additional_info:
         full_text += f"\nDodatkowe informacje: {additional_info}"
     
-    classification = assign_category_and_priority(full_text)
+    # Step 10.1: Analyze query with LLM
+    # Step 10.2: Assign priority
+    classification = assign_priority(full_text)
+    
+    # Step 10.3: Generate ticket number
+    ticket_number = generate_ticket_number()
+    
+    # Step 10.4: Estimate resolution time
+    estimated_time = get_estimated_time(classification["priority"])
     
     ticket = {
+        "ticket_number": ticket_number,
         "query": query,
         "additional_info": additional_info,
-        "category": classification["category"],
         "priority": classification["priority"],
-        "status": "created"
+        "priority_name": classification["priority_name"],
+        "status": "created",
+        "estimated_time": estimated_time,
+        "created_at": time.strftime("%Y-%m-%d %H:%M:%S")
     }
     
-    # Store ticket in Qdrant
+    # Step 10.5: Store ticket in Qdrant
     try:
         embedding = embeddings.embed_query(full_text)
         qdrant_client.upsert(
             collection_name=COLLECTION,
             points=[PointStruct(
-                id=hash(query) % (10**8),  # Simple ID generation
+                id=hash(ticket_number),
                 vector=embedding,
                 payload={
                     "type": "ticket",
+                    "ticket_number": ticket_number,
                     "query": query,
                     "additional_info": additional_info,
-                    "category": classification["category"],
-                    "priority": classification["priority"]
+                    "priority": classification["priority"],
+                    "priority_name": classification["priority_name"],
+                    "status": "created",
+                    "estimated_time": estimated_time,
+                    "created_at": ticket["created_at"]
                 }
             )]
         )
+        print(f"✓ Ticket {ticket_number} stored in Qdrant")
     except Exception as e:
         print(f"Error storing ticket: {e}")
+    
+    # Step 10.6: Send notifications (logged for now)
+    print(f"📧 Notifications sent for ticket {ticket_number}")
     
     return ticket
 
 # Initialize collection on startup
 @app.on_event("startup")
 async def startup_event():
-    print("🚀 Starting Agent2 Ticket System...")
-    print(f"   Qdrant URL: {QDRANT_URL}")
-    print(f"   Ollama URL: {OLLAMA_URL}")
-    print(f"   Collection: {COLLECTION}")
+    print(" Starting Agent2 Ticket System...")
+    print(f" Qdrant URL: {QDRANT_URL}")
+    print(f" Ollama URL: {OLLAMA_URL}")
+    print(f" Collection: {COLLECTION}")
     init_qdrant_collection()
-    print("✅ Agent2 Ticket System ready!")
+    print(" Agent2 Ticket System ready!")
 
 @app.get("/")
 async def root():
-    greeting = agent_behavior.get("behavior", {}).get("greeting", "Hello!")
-    return {"message": greeting}
+    """Workflow Step 1 & 2: Greet user and ask for help"""
+    behavior = agent_behavior.get("behavior", {})
+    greeting = behavior.get("greeting", "Hello!")
+    ask_for_help = behavior.get("ask_for_help", "How can I help?")
+    
+    return {
+        "message": f"{greeting}\n{ask_for_help}",
+        "step": "greeting",
+        "next_step": "receive_query"
+    }
 
 @app.get("/upload_form.html")
 async def get_upload_form():
     """Serve the upload form HTML"""
     return FileResponse("upload_form.html")
 
+@app.get("/host_settings")
+async def get_host_settings():
+    """Get host settings for frontend"""
+    return {
+        "is_local": IS_LOCAL,
+        "local_host": LOCAL_HOST,
+        "server_host": SERVER_HOST,
+        "vector_size": VECTOR_SIZE,
+        "score_threshold": SCORE_THRESHOLD
+    }
+
 @app.post("/run")
 async def run(payload: dict):
-    """Main endpoint for processing queries - ZAWSZE przeszukuje najpierw bazę Qdrant"""
+    """Main endpoint following workflow steps from rules_and_workflow.json"""
     query = payload.get("input", "")
-    step = payload.get("step", "initial")  # Track conversation step
-    additional_info = payload.get("additional_info", None)
+    step = payload.get("step", "receive_query")  # Workflow step tracking
+    original_query = payload.get("original_query", query)
+    
+    behavior = agent_behavior.get("behavior", {})
     
     if not query:
         raise HTTPException(status_code=400, detail="Input query is required")
     
-    # KROK 1: ZAWSZE najpierw przeszukaj bazę danych Qdrant
-    search_query = query
-    original_query = query
-    
-    # Jeśli to kontynuacja, połącz zapytania
-    if step == "need_details" and payload.get("original_query"):
-        original_query = payload.get("original_query")
-        search_query = f"{original_query} {query}"
-    
-    # Przeszukaj bazę dokumentów w Qdrant
-    rag_results = search_rag_database(search_query, limit=5)
-    
-    # KROK 2: Jeśli znaleziono dokumenty, użyj LLM do wygenerowania odpowiedzi
-    if rag_results:
-        context = "\n".join([f"- {r['text']} (kategoria: {r['category']}, score: {r['score']:.2f})" 
-                            for r in rag_results])
-        
-        # Przygotuj prompt z kontekstem
-        if step == "need_details":
-            prompt = f"""Na podstawie następujących dokumentów z bazy wiedzy odpowiedz na pytanie użytkownika.
+    try:
+        # STEP 3: Receive query (already received in payload)
+        # STEP 4: Search Qdrant database
+        if step in ["receive_query", "search_qdrant"]:
+            print(f"🔎 Step 4: Searching Qdrant for: '{query}'")
+            print(behavior.get("searching_message", "Searching..."))
+            
+            rag_results = search_rag_database(query, limit=5)
+            
+            # STEP 5: Generate answer with Ollama if documents found
+            if rag_results:
+                context = "\n\n".join([
+                    f"Dokument {i+1} (trafność: {r['score']:.2f}):\n{r['text']}\nKategoria: {r['category']}" 
+                    for i, r in enumerate(rag_results)
+                ])
+                
+                print(f"✓ Step 5: Generating answer with {len(rag_results)} documents")
+                
+                prompt = f"""Jesteś asystentem WSB Merito o imieniu Adam. Odpowiedz na podstawie dokumentacji.
 
-Dokumenty z bazy wiedzy:
+DOKUMENTACJA:
 {context}
 
-Pytanie początkowe: {original_query}
-Dodatkowe informacje: {query}
+PYTANIE: {query}
 
-Przeanalizuj dokumenty i udziel pomocnej, zwięzłej odpowiedzi po polsku. Jeśli dokumenty nie zawierają pełnej odpowiedzi, powiedz o tym."""
+INSTRUKCJE:
+- Odpowiedz jasno i konkretnie na podstawie dokumentacji
+- Jeśli dokumenty zawierają odpowiedź, podaj ją w pełni
+- Jeśli dokumenty nie zawierają odpowiedzi, powiedz to wprost
+- NIE wymyślaj informacji
+- Odpowiadaj po polsku
+
+ODPOWIEDŹ:"""
+                
+                response = llm.invoke(prompt)
+                
+                # STEP 11: Ask if can help with something else
+                ask_continue = behavior.get("ask_continue", "Czy mogę pomóc w czymś jeszcze?")
+                
+                return {
+                    "response": f"{response.content}\n\n{ask_continue}",
+                    "rag_results": rag_results,
+                    "documents_found": len(rag_results),
+                    "step": "answer_provided",
+                    "next_step": "ask_continue",
+                    "collection": COLLECTION
+                }
+            
+            # STEP 6: No results - ask for more details
+            else:
+                print("→ Step 6: No results, asking for details")
+                ask_details = behavior.get("ask_for_details", "Czy możesz podać więcej szczegółów?")
+                
+                return {
+                    "response": ask_details,
+                    "step": "ask_details",
+                    "next_step": "receive_details",
+                    "original_query": query,
+                    "documents_found": 0,
+                    "collection": COLLECTION
+                }
+        
+        # STEP 7: Receive additional details
+        # STEP 8: Search with combined details
+        elif step in ["receive_details", "search_with_details"]:
+            combined_query = f"{original_query} {query}"
+            print(f"🔎 Step 8: Searching with details: '{combined_query}'")
+            print(behavior.get("searching_with_details", "Searching with additional info..."))
+            
+            rag_results = search_rag_database(combined_query, limit=5)
+            
+            # STEP 5: Generate answer if found
+            if rag_results:
+                context = "\n\n".join([
+                    f"Dokument {i+1} (trafność: {r['score']:.2f}):\n{r['text']}\nKategoria: {r['category']}" 
+                    for i, r in enumerate(rag_results)
+                ])
+                
+                print(f"✓ Step 5: Generating answer with {len(rag_results)} documents")
+                
+                prompt = f"""Jesteś asystentem WSB Merito o imieniu Adam. Odpowiedz na podstawie dokumentacji.
+
+DOKUMENTACJA:
+{context}
+
+PYTANIE POCZĄTKOWE: {original_query}
+DODATKOWE INFORMACJE: {query}
+
+INSTRUKCJE:
+- Odpowiedz jasno i konkretnie na podstawie dokumentacji
+- Uwzględnij obie części pytania
+- Jeśli dokumenty nie zawierają odpowiedzi, powiedz to wprost
+- NIE wymyślaj informacji
+- Odpowiadaj po polsku
+
+ODPOWIEDŹ:"""
+                
+                response = llm.invoke(prompt)
+                ask_continue = behavior.get("ask_continue", "Czy mogę pomóc w czymś jeszcze?")
+                
+                return {
+                    "response": f"{response.content}\n\n{ask_continue}",
+                    "rag_results": rag_results,
+                    "documents_found": len(rag_results),
+                    "step": "answer_provided",
+                    "next_step": "ask_continue",
+                    "collection": COLLECTION
+                }
+            
+            # STEP 9: Still no results - ask if create ticket
+            else:
+                print("→ Step 9: Still no results, asking to create ticket")
+                ask_create = behavior.get("ask_create_ticket", "Czy chcesz utworzyć zgłoszenie?")
+                
+                return {
+                    "response": ask_create,
+                    "step": "ask_create_ticket",
+                    "next_step": "create_ticket",
+                    "original_query": original_query,
+                    "additional_info": query,
+                    "documents_found": 0,
+                    "collection": COLLECTION
+                }
+        
+        # STEP 10: Classify and create ticket
+        elif step == "create_ticket":
+            print("→ Step 10: Classifying and creating ticket")
+            print(behavior.get("classifying_ticket", "Klasyfikuję zgłoszenie..."))
+            
+            additional_info = payload.get("additional_info")
+            ticket = create_ticket(original_query, additional_info)
+            
+            # Format response using ticket_created template
+            ticket_msg = behavior.get("ticket_created", "Zgłoszenie utworzone")
+            response_text = ticket_msg.format(
+                ticket_number=ticket["ticket_number"],
+                priority=f"{ticket['priority']} ({ticket['priority_name']})",
+                estimated_time=ticket["estimated_time"],
+                status=ticket["status"]
+            )
+            
+            # STEP 11: Ask if can help with something else
+            ask_continue = behavior.get("ask_continue", "Czy mogę pomóc w czymś jeszcze?")
+            
+            return {
+                "response": f"{response_text}\n\n{ask_continue}",
+                "ticket": ticket,
+                "step": "ticket_created",
+                "next_step": "ask_continue",
+                "documents_found": 0,
+                "collection": COLLECTION
+            }
+        
+        # STEP 12: Farewell
+        elif step == "farewell":
+            farewell = behavior.get("farewell", "Do zobaczenia!")
+            return {
+                "response": farewell,
+                "step": "completed",
+                "end": True
+            }
+        
         else:
-            prompt = f"""Na podstawie następujących dokumentów z bazy wiedzy odpowiedz na pytanie użytkownika.
-
-Dokumenty z bazy wiedzy:
-{context}
-
-Pytanie: {query}
-
-Przeanalizuj dokumenty i udziel pomocnej, zwięzłej odpowiedzi po polsku. Jeśli dokumenty nie zawierają pełnej odpowiedzi, powiedz o tym."""
-        
-        # Wywołaj LLM z kontekstem z Qdrant
-        response = llm.invoke(prompt)
-        
+            return {
+                "error": f"Unknown step: {step}",
+                "documents_found": 0,
+                "collection": COLLECTION
+            }
+    
+    except Exception as e:
+        print(f"❌ Error in workflow: {e}")
+        error_msg = behavior.get("error_response", "Przepraszam, wystąpił błąd.")
         return {
-            "response": response.content,
-            "rag_results": rag_results,
-            "documents_found": len(rag_results),
-            "step": "completed",
+            "response": error_msg,
+            "error": str(e),
+            "step": "error",
             "collection": COLLECTION
         }
-    
-    # KROK 3: Brak wyników - obsłuż według kroku
-    if step == "initial":
-        # Pierwsze zapytanie bez wyników - poproś o więcej szczegółów
-        return {
-            "response": "Nie znalazłem odpowiedzi w bazie dokumentów. Czy możesz podać więcej szczegółów lub przeformułować pytanie?",
-            "step": "need_details",
-            "original_query": query,
-            "documents_found": 0,
-            "collection": COLLECTION
-        }
-    
-    elif step == "need_details":
-        # Nadal brak wyników po dodatkowych szczegółach - utwórz zgłoszenie
-        ticket = create_ticket(original_query, query)
-        
-        response_text = f"""Przepraszam, nie znalazłem odpowiedzi w bazie dokumentów nawet po dodatkowych szczegółach. 
-
-Utworzyłem zgłoszenie:
-- Kategoria: {ticket['category']}
-- Priorytet: {ticket['priority']}
-
-Powiadomiłem Ciebie i dział BOS e-mailem. Czy mogę pomóc w czymś jeszcze?"""
-        
-        return {
-            "response": response_text,
-            "ticket": ticket,
-            "step": "ticket_created",
-            "documents_found": 0,
-            "collection": COLLECTION
-        }
-    
-    # KROK 4: Bezpośrednie tworzenie zgłoszenia (tylko gdy użytkownik jawnie o to poprosi)
-    elif step == "create_ticket":
-        ticket = create_ticket(query, additional_info)
-        return {
-            "ticket": ticket,
-            "response": f"Zgłoszenie utworzone. Kategoria: {ticket['category']}, Priorytet: {ticket['priority']}",
-            "step": "ticket_created",
-            "documents_found": 0,
-            "collection": COLLECTION
-        }
-    
-    return {
-        "error": "Unknown step",
-        "documents_found": 0,
-        "collection": COLLECTION
-    }
 
 @app.post("/upload")
 async def upload_file(
@@ -342,6 +480,11 @@ async def upload_file(
 ):
     """Upload a file (PDF, DOCX, TXT, etc.) to Qdrant"""
     try:
+        print(f" Received upload request for: {file.filename}")
+        print(f" Category: {category}")
+        print(f" Collection: {COLLECTION}")
+        print(f" Qdrant URL: {QDRANT_URL}")
+        
         # Check if file type is supported
         if not file_processor.is_supported(file.filename):
             raise HTTPException(
@@ -351,6 +494,7 @@ async def upload_file(
         
         # Read file content
         content = await file.read()
+        print(f" File size: {len(content)} bytes")
         
         # Upload to Qdrant
         result = document_uploader.upload_file(
@@ -359,47 +503,70 @@ async def upload_file(
             category=category
         )
         
+        print(f" Upload result: {result}")
+        
         if "error" in result:
+            print(f" Upload error: {result['error']}")
             raise HTTPException(status_code=500, detail=result["error"])
         
+        print(f" Upload successful: {result.get('chunks_uploaded', 0)} chunks uploaded")
         return result
         
     except HTTPException:
         raise
     except Exception as e:
+        print(f" Unexpected error during upload: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/upload/batch")
 async def upload_batch(files: List[UploadFile] = File(...), category: str = Form("Document")):
     """Upload multiple files at once"""
+    print(f" Batch upload request - {len(files)} files")
+    print(f" Category: {category}")
+    print(f" Collection: {COLLECTION}")
+    
     results = []
     
     for file in files:
         try:
+            print(f" Processing: {file.filename}")
+            
             if not file_processor.is_supported(file.filename):
                 results.append({
                     "filename": file.filename,
                     "status": "skipped",
                     "reason": "unsupported format"
                 })
+                print(f" Skipped {file.filename} - unsupported format")
                 continue
             
             content = await file.read()
+            print(f" Read {len(content)} bytes from {file.filename}")
+            
             result = document_uploader.upload_file(
                 file_content=content,
                 filename=file.filename,
                 category=category
             )
+            
+            print(f"   Result for {file.filename}: {result}")
             results.append(result)
             
         except Exception as e:
+            error_msg = str(e)
+            print(f" Error processing {file.filename}: {error_msg}")
             results.append({
                 "filename": file.filename,
                 "status": "error",
-                "error": str(e)
+                "error": error_msg
             })
     
-    return {"uploaded": len([r for r in results if r.get("status") == "success"]), "results": results}
+    successful = len([r for r in results if r.get("status") == "success"])
+    print(f" Batch upload complete: {successful}/{len(files)} successful")
+    
+    return {"uploaded": successful, "results": results}
 
 @app.get("/stats")
 async def get_stats():
@@ -485,21 +652,4 @@ async def list_documents():
 async def health():
     return {"status": "healthy", "collection": COLLECTION}
 
-@app.post("/reindex")
-async def reindex():
-    """Force reindex all documents from rag_database.json"""
-    try:
-        print("🔄 Force reindexing documents...")
-        index_rag_documents()
-        
-        # Get collection stats
-        collection_info = qdrant_client.get_collection(COLLECTION)
-        
-        return {
-            "status": "success",
-            "message": "Documents reindexed",
-            "collection": COLLECTION,
-            "points_count": collection_info.points_count
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+

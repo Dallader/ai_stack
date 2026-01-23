@@ -206,7 +206,29 @@
         </div>
 
         <script>
-            const API_URL = 'http://192.168.0.76:8002';
+            // Dynamically load API URL from host settings
+            const currentHost = window.location.hostname || 'localhost';
+            const currentPort = window.location.port || '8002';
+            let API_URL = `http://${currentHost}:8002`; // Default to current host
+
+            // Load host settings and set API URL
+            async function loadHostSettings() {
+                try {
+                    // Use current host for fetching settings
+                    const response = await fetch(`http://${currentHost}:8002/host_settings`);
+                    if (response.ok) {
+                        const settings = await response.json();
+                        const host = settings.is_local ? settings.local_host : settings.server_host;
+                        API_URL = `http://${host}:8002`;
+                        console.log(`API URL set to: ${API_URL}`);
+                    }
+                } catch (error) {
+                    console.warn('Could not load host settings, using default:', error);
+                }
+            }
+
+            // Initialize on page load
+            loadHostSettings();
 
             function showResult(message, isSuccess) {
                 const resultDiv = document.getElementById('result');
@@ -242,14 +264,14 @@
                     const data = await response.json();
 
                     if (response.ok) {
-                        showResult(`✅ Successfully uploaded ${data.uploaded} file(s)!`, true);
+                        showResult(` Successfully uploaded ${data.uploaded} file(s)!`, true);
                         loadStats();
                         fileInput.value = '';
                     } else {
-                        showResult(`❌ Error: ${data.detail || 'Upload failed'}`, false);
+                        showResult(` Error: ${data.detail || 'Upload failed'}`, false);
                     }
                 } catch (error) {
-                    showResult(`❌ Error: ${error.message}`, false);
+                    showResult(` Error: ${error.message}`, false);
                 }
             }
 
@@ -287,14 +309,14 @@
                     const data = await uploadResponse.json();
 
                     if (uploadResponse.ok) {
-                        showResult(`✅ Successfully uploaded ${data.filename}!`, true);
+                        showResult(` Successfully uploaded ${data.filename}!`, true);
                         loadStats();
                         document.getElementById('urlInput').value = '';
                     } else {
-                        showResult(`❌ Error: ${data.detail || 'Upload failed'}`, false);
+                        showResult(` Error: ${data.detail || 'Upload failed'}`, false);
                     }
                 } catch (error) {
-                    showResult(`❌ Error: ${error.message}`, false);
+                    showResult(` Error: ${error.message}`, false);
                 }
             }
 
@@ -332,9 +354,9 @@
                         document.getElementById('documentsList').innerHTML = '<p>No documents uploaded yet</p>';
                     }
 
-                    showResult('✅ Stats refreshed!', true);
+                    showResult(' Stats refreshed!', true);
                 } catch (error) {
-                    showResult(`❌ Error loading stats: ${error.message}`, false);
+                    showResult(` Error loading stats: ${error.message}`, false);
                 }
             }
 
@@ -351,13 +373,13 @@
                     const data = await response.json();
 
                     if (response.ok) {
-                        showResult(`✅ Deleted ${filename} (${data.chunks_deleted} chunks)`, true);
+                        showResult(` Deleted ${filename} (${data.chunks_deleted} chunks)`, true);
                         loadStats();
                     } else {
-                        showResult(`❌ Error: ${data.detail || 'Delete failed'}`, false);
+                        showResult(` Error: ${data.detail || 'Delete failed'}`, false);
                     }
                 } catch (error) {
-                    showResult(`❌ Error: ${error.message}`, false);
+                    showResult(` Error: ${error.message}`, false);
                 }
             }
 
