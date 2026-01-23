@@ -1,24 +1,19 @@
 [
     {
-        "id": "orchestration_tab",
+        "id": "bcd37c70fd470577",
         "type": "tab",
-        "label": "Orchestration - Multi-Agent Workflow",
+        "label": "Agent2 - Enhanced RAG Test",
         "disabled": false,
-        "info": "Complete workflow orchestrating multiple agents together"
+        "info": "Testy ulepszonego systemu RAG z przeszukiwaniem Qdrant"
     },
     {
-        "id": "inject_user_query",
+        "id": "step1_greeting",
         "type": "inject",
-        "z": "orchestration_tab",
-        "name": "User Query",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 1: Greeting (Powitanie)",
         "props": [
             {
                 "p": "payload"
-            },
-            {
-                "p": "user",
-                "v": "{\\\"id\\\":\\\"user123\\\",\\\"email\\\":\\\"student@university.edu\\\",\\\"name\\\":\\\"Jan Kowalski\\\"}",
-                "vt": "json"
             }
         ],
         "repeat": "",
@@ -26,104 +21,449 @@
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "Mam problem z dostępem do systemu ocen",
-        "payloadType": "str",
+        "payload": "{\"input\":\"\",\"step\":\"greeting\"}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 580,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "step2_ask_help",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 2: Ask for Help (Jak mogę pomóc)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"\",\"step\":\"ask_for_help\"}",
+        "payloadType": "json",
+        "x": 210,
+        "y": 640,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "step3_query1",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 3: Query - Prawa i obowiązki",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\",\"step\":\"receive_query\"}",
+        "payloadType": "json",
+        "x": 200,
+        "y": 700,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "step3_query2",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 3: Query - Formy płatności",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Jakie są dostępne formy płatności w Extranecie?\",\"step\":\"receive_query\"}",
+        "payloadType": "json",
+        "x": 190,
+        "y": 760,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "step3_query3",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 3: Query - Reklamacja oceny",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"W jakim czasie mogę złożyć reklamację oceny?\",\"step\":\"receive_query\"}",
+        "payloadType": "json",
+        "x": 200,
+        "y": 820,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "step7_details",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 7: Receive Details - Więcej info",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Przedstaw całą procedurę reklamacji oceny\",\"step\":\"receive_details\",\"original_query\":\"W jakim czasie mogę złożyć reklamację oceny?\"}",
+        "payloadType": "json",
+        "x": 200,
+        "y": 880,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "step9_create_ticket",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 9-10: Create Ticket - Dane osobowe BOSU",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Chcę sprawdzić jakie moje dane osobowe są w systemie i zgłosić do BOSU zmianę mojego adresu zamieszkania\",\"step\":\"ask_create_ticket\",\"create_ticket\":true}",
+        "payloadType": "json",
+        "x": 240,
+        "y": 940,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "step11_continue_yes",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 11: Continue - TAK (kolejne pytanie)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"\",\"step\":\"ask_continue\",\"continue\":true}",
+        "payloadType": "json",
+        "x": 220,
+        "y": 1000,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "step12_farewell",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 12: Farewell (Pożegnanie)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"\",\"step\":\"farewell\"}",
+        "payloadType": "json",
+        "x": 190,
+        "y": 1060,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "bfd5b8b982ac2442",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Health Check",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
         "x": 130,
-        "y": 100,
+        "y": 60,
         "wires": [
             [
-                "log_security_audit"
+                "1a180e3eb908dbc6"
             ]
         ]
     },
     {
-        "id": "log_security_audit",
-        "type": "function",
-        "z": "orchestration_tab",
-        "name": "Log to Security Agent",
-        "func": "// Save original message\nflow.set('original_query', msg.payload);\nflow.set('user_info', msg.user);\n\n// Prepare security audit log\nmsg.payload = {\n    \"input\": `User query received from ${msg.user.name} (${msg.user.email}): ${msg.payload}`\n};\n\nmsg.url = \"http://agent5_security:8000/run\";\n\nreturn msg;",
-        "outputs": 1,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 370,
-        "y": 100,
+        "id": "4c26b4df546205ac",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Stats - Statystyki kolekcji",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 170,
+        "y": 120,
         "wires": [
             [
-                "http_security_log"
+                "87c0c67956953d1a"
             ]
         ]
     },
     {
-        "id": "http_security_log",
+        "id": "931ef153754c4bc3",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "REINDEX - Załaduj ponownie dokumenty",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 220,
+        "y": 180,
+        "wires": [
+            [
+                "d1722fe5a1fa4198"
+            ]
+        ]
+    },
+    {
+        "id": "38c6377fe53ce66e",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Lista dokumentów w Qdrant",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 180,
+        "y": 240,
+        "wires": [
+            [
+                "289fab2bb84f372a"
+            ]
+        ]
+    },
+    {
+        "id": "c380192ce02f89b2",
         "type": "http request",
-        "z": "orchestration_tab",
-        "name": "Agent 5 (Security)",
+        "z": "bcd37c70fd470577",
+        "name": "POST /run",
         "method": "POST",
         "ret": "obj",
         "paytoqs": "ignore",
-        "url": "",
+        "url": "http://agent2_ticket:8000/run",
         "tls": "",
         "persist": false,
         "proxy": "",
+        "insecureHTTPParser": false,
         "authType": "",
-        "sendsPayload": true,
-        "x": 600,
-        "y": 100,
+        "senderr": false,
+        "headers": [
+            {
+                "keyType": "Content-Type",
+                "keyValue": "",
+                "valueType": "other",
+                "valueValue": "application/json"
+            }
+        ],
+        "x": 1330,
+        "y": 380,
         "wires": [
             [
-                "route_to_agent"
+                "32a76c72281e0269",
+                "73e92787ec9354d9"
             ]
         ]
     },
     {
-        "id": "route_to_agent",
-        "type": "function",
-        "z": "orchestration_tab",
-        "name": "Route Query",
-        "func": "// Get original query\nconst query = flow.get('original_query');\nconst user = flow.get('user_info');\n\n// Simple routing logic\nlet targetAgent = 'agent2_ticket'; // Default to ticket system\nlet step = 'initial';\n\n// Check for keywords\nif (query.toLowerCase().includes('analiz') || query.toLowerCase().includes('statyst')) {\n    targetAgent = 'agent3_analytics';\n} else if (query.toLowerCase().includes('uczy') || query.toLowerCase().includes('pytanie')) {\n    targetAgent = 'agent1_student';\n}\n\n// Prepare payload\nmsg.payload = {\n    \"input\": query,\n    \"step\": step,\n    \"user\": user\n};\n\nmsg.targetAgent = targetAgent;\nmsg.url = `http://${targetAgent}:8000/run`;\n\nreturn msg;",
-        "outputs": 1,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 800,
-        "y": 100,
-        "wires": [
-            [
-                "http_target_agent",
-                "debug_routing"
-            ]
-        ]
-    },
-    {
-        "id": "http_target_agent",
+        "id": "1a180e3eb908dbc6",
         "type": "http request",
-        "z": "orchestration_tab",
-        "name": "Target Agent",
+        "z": "bcd37c70fd470577",
+        "name": "GET /health",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent2_ticket:8000/health",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 490,
+        "y": 60,
+        "wires": [
+            [
+                "2969d110b991a75a"
+            ]
+        ]
+    },
+    {
+        "id": "87c0c67956953d1a",
+        "type": "http request",
+        "z": "bcd37c70fd470577",
+        "name": "GET /stats",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent2_ticket:8000/stats",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 490,
+        "y": 120,
+        "wires": [
+            [
+                "59e3e2247f89b656"
+            ]
+        ]
+    },
+    {
+        "id": "d1722fe5a1fa4198",
+        "type": "http request",
+        "z": "bcd37c70fd470577",
+        "name": "POST /reindex",
         "method": "POST",
         "ret": "obj",
         "paytoqs": "ignore",
-        "url": "",
+        "url": "http://agent2_ticket:8000/reindex",
         "tls": "",
         "persist": false,
         "proxy": "",
+        "insecureHTTPParser": false,
         "authType": "",
-        "sendsPayload": true,
-        "x": 1000,
-        "y": 100,
+        "senderr": false,
+        "headers": [],
+        "x": 500,
+        "y": 180,
         "wires": [
             [
-                "check_response_type"
+                "04c658b32a45d64c"
             ]
         ]
     },
     {
-        "id": "check_response_type",
+        "id": "289fab2bb84f372a",
+        "type": "http request",
+        "z": "bcd37c70fd470577",
+        "name": "GET /documents",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://agent2_ticket:8000/documents",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 510,
+        "y": 240,
+        "wires": [
+            [
+                "6c5ecce85eb34337"
+            ]
+        ]
+    },
+    {
+        "id": "32a76c72281e0269",
         "type": "switch",
-        "z": "orchestration_tab",
-        "name": "Check Response",
+        "z": "bcd37c70fd470577",
+        "name": "Analiza odpowiedzi",
         "property": "payload.step",
         "propertyType": "msg",
         "rules": [
@@ -134,207 +474,459 @@
             },
             {
                 "t": "eq",
-                "v": "ticket_created",
+                "v": "need_details",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "need_details",
+                "v": "ticket_created",
                 "vt": "str"
             },
             {
                 "t": "else"
             }
         ],
-        "checkall": "true",
+        "checkall": "false",
         "repair": false,
         "outputs": 4,
-        "x": 1200,
-        "y": 100,
+        "x": 1550,
+        "y": 360,
         "wires": [
             [
-                "send_to_user"
+                "8e173b1d0999e9d4"
             ],
             [
-                "notify_bos_and_user"
+                "86b83bdfdf377c76"
             ],
             [
-                "request_more_info"
+                "dd4a93a5a2b8ab8f"
             ],
             [
-                "send_to_user"
+                "83f4199c57bd1019"
             ]
         ]
     },
     {
-        "id": "send_to_user",
+        "id": "8e173b1d0999e9d4",
         "type": "function",
-        "z": "orchestration_tab",
-        "name": "Format User Response",
-        "func": "const user = flow.get('user_info');\n\nmsg.userResponse = {\n    \"to\": user.email,\n    \"response\": msg.payload.response || msg.payload.result || msg.payload.insights,\n    \"timestamp\": new Date().toISOString()\n};\n\nmsg.payload = msg.userResponse;\n\nreturn msg;",
+        "z": "bcd37c70fd470577",
+        "name": "Format: Odpowiedź znaleziona",
+        "func": "const data = msg.payload;\n\nmsg.payload = {\n    status: \"✅ SUKCES - Znaleziono odpowiedź\",\n    response: data.response,\n    documents_found: data.documents_found || 0,\n    rag_results: data.rag_results || [],\n    collection: data.collection,\n    step: data.step\n};\n\nreturn msg;",
         "outputs": 1,
+        "timeout": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1440,
+        "x": 1850,
+        "y": 260,
+        "wires": [
+            [
+                "7abd3d35aebe2b17"
+            ]
+        ]
+    },
+    {
+        "id": "86b83bdfdf377c76",
+        "type": "function",
+        "z": "bcd37c70fd470577",
+        "name": "Format: Potrzeba szczegółów",
+        "func": "const data = msg.payload;\n\nmsg.payload = {\n    status: \"⚠️ BRAK WYNIKÓW - Proszę o więcej szczegółów\",\n    response: data.response,\n    original_query: data.original_query,\n    documents_found: data.documents_found || 0,\n    collection: data.collection,\n    step: data.step,\n    next_action: \"Użyj Test 4 z original_query z tej odpowiedzi\"\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1850,
+        "y": 320,
+        "wires": [
+            [
+                "c7de2b9fe531f113"
+            ]
+        ]
+    },
+    {
+        "id": "dd4a93a5a2b8ab8f",
+        "type": "function",
+        "z": "bcd37c70fd470577",
+        "name": "Format: Ticket utworzony",
+        "func": "const data = msg.payload;\n\nmsg.payload = {\n    status: \"🎫 TICKET UTWORZONY\",\n    response: data.response,\n    ticket: data.ticket || {},\n    documents_found: data.documents_found || 0,\n    collection: data.collection,\n    step: data.step\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1830,
+        "y": 380,
+        "wires": [
+            [
+                "e0385c7f6985e868"
+            ]
+        ]
+    },
+    {
+        "id": "7abd3d35aebe2b17",
+        "type": "debug",
+        "z": "bcd37c70fd470577",
+        "name": "Odpowiedź znaleziona",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 2120,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "c7de2b9fe531f113",
+        "type": "debug",
+        "z": "bcd37c70fd470577",
+        "name": "Potrzeba szczegółów",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 2120,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "e0385c7f6985e868",
+        "type": "debug",
+        "z": "bcd37c70fd470577",
+        "name": "Ticket utworzony",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 2110,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "83f4199c57bd1019",
+        "type": "debug",
+        "z": "bcd37c70fd470577",
+        "name": "Błąd",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1770,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "73e92787ec9354d9",
+        "type": "debug",
+        "z": "bcd37c70fd470577",
+        "name": "Pełna odpowiedź",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1550,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "2969d110b991a75a",
+        "type": "debug",
+        "z": "bcd37c70fd470577",
+        "name": "Health",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 690,
         "y": 60,
-        "wires": [
-            [
-                "debug_user_response"
-            ]
-        ]
+        "wires": []
     },
     {
-        "id": "notify_bos_and_user",
-        "type": "function",
-        "z": "orchestration_tab",
-        "name": "Notify BOS",
-        "func": "const user = flow.get('user_info');\nconst ticket = msg.payload.ticket;\n\n// Notify BOS Agent\nmsg.bosPayload = {\n    \"input\": `New ticket from ${user.name}: ${ticket.category} - Priority: ${ticket.priority}`\n};\n\n// Prepare user notification\nmsg.userResponse = {\n    \"to\": user.email,\n    \"response\": msg.payload.response,\n    \"ticket\": ticket,\n    \"timestamp\": new Date().toISOString()\n};\n\n// Set BOS URL for next node\nmsg.url = \"http://agent4_bos:8000/run\";\nmsg.payload = msg.bosPayload;\n\nreturn msg;",
-        "outputs": 1,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 1410,
+        "id": "59e3e2247f89b656",
+        "type": "debug",
+        "z": "bcd37c70fd470577",
+        "name": "Statystyki",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 700,
         "y": 120,
-        "wires": [
-            [
-                "http_notify_bos"
-            ]
-        ]
+        "wires": []
     },
     {
-        "id": "http_notify_bos",
-        "type": "http request",
-        "z": "orchestration_tab",
-        "name": "Agent 4 (BOS)",
-        "method": "POST",
-        "ret": "obj",
-        "paytoqs": "ignore",
-        "url": "",
-        "tls": "",
-        "persist": false,
-        "proxy": "",
-        "authType": "",
-        "sendsPayload": true,
-        "x": 1610,
-        "y": 120,
-        "wires": [
-            [
-                "send_analytics"
-            ]
-        ]
-    },
-    {
-        "id": "send_analytics",
-        "type": "function",
-        "z": "orchestration_tab",
-        "name": "Log Analytics",
-        "func": "const user = flow.get('user_info');\n\n// Send ticket data to analytics agent\nmsg.payload = {\n    \"input\": `Ticket created: Category=${msg.userResponse.ticket.category}, Priority=${msg.userResponse.ticket.priority}, User=${user.name}`\n};\n\nmsg.url = \"http://agent3_analytics:8000/run\";\n\nreturn msg;",
-        "outputs": 1,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 1810,
-        "y": 120,
-        "wires": [
-            [
-                "http_analytics"
-            ]
-        ]
-    },
-    {
-        "id": "http_analytics",
-        "type": "http request",
-        "z": "orchestration_tab",
-        "name": "Agent 3 (Analytics)",
-        "method": "POST",
-        "ret": "obj",
-        "paytoqs": "ignore",
-        "url": "",
-        "tls": "",
-        "persist": false,
-        "proxy": "",
-        "authType": "",
-        "sendsPayload": true,
-        "x": 2020,
-        "y": 120,
-        "wires": [
-            [
-                "debug_complete"
-            ]
-        ]
-    },
-    {
-        "id": "request_more_info",
-        "type": "function",
-        "z": "orchestration_tab",
-        "name": "Request Details",
-        "func": "const user = flow.get('user_info');\n\nmsg.userResponse = {\n    \"to\": user.email,\n    \"response\": \"Potrzebuję więcej informacji. Czy możesz podać dodatkowe szczegóły?\",\n    \"requires_followup\": true,\n    \"original_query\": msg.payload.original_query,\n    \"timestamp\": new Date().toISOString()\n};\n\nmsg.payload = msg.userResponse;\n\nreturn msg;",
-        "outputs": 1,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 1430,
+        "id": "04c658b32a45d64c",
+        "type": "debug",
+        "z": "bcd37c70fd470577",
+        "name": "Reindex",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 700,
         "y": 180,
+        "wires": []
+    },
+    {
+        "id": "6c5ecce85eb34337",
+        "type": "debug",
+        "z": "bcd37c70fd470577",
+        "name": "Dokumenty",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 710,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "comment_individual",
+        "type": "comment",
+        "z": "bcd37c70fd470577",
+        "name": "📋 INDYWIDUALNE KROKI - Testuj każdy krok osobno",
+        "info": "## Indywidualne kroki workflow\nMożesz testować każdy krok osobno klikając odpowiedni przycisk",
+        "x": 260,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "seq1_full_success",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "SEKWENCJA 1: Pełna rozmowa - sukces (znaleziono odpowiedź)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 290,
+        "y": 300,
         "wires": [
             [
-                "debug_user_response"
+                "seq1_function"
             ]
         ]
     },
     {
-        "id": "debug_routing",
-        "type": "debug",
-        "z": "orchestration_tab",
-        "name": "Routing Decision",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "true",
-        "targetType": "full",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 1010,
-        "y": 40,
-        "wires": []
+        "id": "seq1_function",
+        "type": "function",
+        "z": "bcd37c70fd470577",
+        "name": "Sekwencja 1: Sukces",
+        "func": "// SEKWENCJA 1: Pełna udana rozmowa (pytanie z odpowiedzią w bazie)\nconst conversation = [\n    {\n        name: \"1. Powitanie\",\n        payload: {input: \"\", step: \"greeting\"},\n        delay: 0\n    },\n    {\n        name: \"2. Zapytanie jak pomóc\",\n        payload: {input: \"\", step: \"ask_for_help\"},\n        delay: 2000\n    },\n    {\n        name: \"3. Zapytanie użytkownika\",\n        payload: {input: \"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\", step: \"receive_query\"},\n        delay: 4000\n    },\n    {\n        name: \"4-5. Wyszukiwanie i odpowiedź\",\n        payload: {input: \"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\", step: \"search_qdrant\"},\n        delay: 6000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? NIE\",\n        payload: {input: \"\", step: \"ask_continue\", continue: false},\n        delay: 8000\n    },\n    {\n        name: \"12. Pożegnanie\",\n        payload: {input: \"\", step: \"farewell\"},\n        delay: 10000\n    }\n];\n\nconversation.forEach((step, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: step.payload,\n            conversation_step: step.name,\n            step_number: index + 1,\n            sequence: \"SEKWENCJA 1: Pełna rozmowa - SUKCES\"\n        });\n    }, step.delay);\n});\n\nnode.status({fill: \"green\", shape: \"dot\", text: \"Sekwencja 1 uruchomiona - 6 kroków\"});\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 660,
+        "y": 300,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
     },
     {
-        "id": "debug_user_response",
-        "type": "debug",
-        "z": "orchestration_tab",
-        "name": "User Response",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "payload",
-        "targetType": "msg",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 1680,
-        "y": 60,
-        "wires": []
+        "id": "seq2_with_details",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "SEKWENCJA 2: Rozmowa z dodatkowymi detalami",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 250,
+        "y": 360,
+        "wires": [
+            [
+                "seq2_function"
+            ]
+        ]
     },
     {
-        "id": "debug_complete",
-        "type": "debug",
-        "z": "orchestration_tab",
-        "name": "Workflow Complete",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "payload",
-        "targetType": "msg",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 2230,
-        "y": 120,
-        "wires": []
+        "id": "seq2_function",
+        "type": "function",
+        "z": "bcd37c70fd470577",
+        "name": "Sekwencja 2: Z detalami",
+        "func": "// SEKWENCJA 2: Rozmowa wymagająca dodatkowych szczegółów\nconst conversation = [\n    {\n        name: \"1. Powitanie\",\n        payload: {input: \"\", step: \"greeting\"},\n        delay: 0\n    },\n    {\n        name: \"2. Zapytanie jak pomóc\",\n        payload: {input: \"\", step: \"ask_for_help\"},\n        delay: 2000\n    },\n    {\n        name: \"3. Zapytanie użytkownika\",\n        payload: {input: \"W jakim czasie mogę złożyć reklamację oceny?\", step: \"receive_query\"},\n        delay: 4000\n    },\n    {\n        name: \"4. Wyszukiwanie - brak wyników\",\n        payload: {input: \"W jakim czasie mogę złożyć reklamację oceny?\", step: \"search_qdrant\"},\n        delay: 6000\n    },\n    {\n        name: \"6. Prośba o dodatkowe szczegóły\",\n        payload: {input: \"\", step: \"ask_details\", original_query: \"W jakim czasie mogę złożyć reklamację oceny?\"},\n        delay: 8000\n    },\n    {\n        name: \"7. Użytkownik podaje więcej informacji\",\n        payload: {input: \"Przedstaw całą procedurę reklamacji oceny\", step: \"receive_details\", original_query: \"W jakim czasie mogę złożyć reklamację oceny?\"},\n        delay: 10000\n    },\n    {\n        name: \"8. Wyszukiwanie z detalami\",\n        payload: {input: \"Przedstaw całą procedurę reklamacji oceny\", step: \"search_with_details\", original_query: \"W jakim czasie mogę złożyć reklamację oceny?\"},\n        delay: 12000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? NIE\",\n        payload: {input: \"\", step: \"ask_continue\", continue: false},\n        delay: 14000\n    },\n    {\n        name: \"12. Pożegnanie\",\n        payload: {input: \"\", step: \"farewell\"},\n        delay: 16000\n    }\n];\n\nconversation.forEach((step, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: step.payload,\n            conversation_step: step.name,\n            step_number: index + 1,\n            sequence: \"SEKWENCJA 2: Z dodatkowymi detalami\"\n        });\n    }, step.delay);\n});\n\nnode.status({fill: \"yellow\", shape: \"dot\", text: \"Sekwencja 2 uruchomiona - 9 kroków\"});\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 670,
+        "y": 360,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "seq3_create_ticket",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "SEKWENCJA 3: Rozmowa z utworzeniem ticketu",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 240,
+        "y": 420,
+        "wires": [
+            [
+                "seq3_function"
+            ]
+        ]
+    },
+    {
+        "id": "seq3_function",
+        "type": "function",
+        "z": "bcd37c70fd470577",
+        "name": "Sekwencja 3: Z ticketem",
+        "func": "// SEKWENCJA 3: Rozmowa kończąca się utworzeniem ticketu\nconst conversation = [\n    {\n        name: \"1. Powitanie\",\n        payload: {input: \"\", step: \"greeting\"},\n        delay: 0\n    },\n    {\n        name: \"2. Zapytanie jak pomóc\",\n        payload: {input: \"\", step: \"ask_for_help\"},\n        delay: 2000\n    },\n    {\n        name: \"3. Zapytanie użytkownika\",\n        payload: {input: \"Chcę zmienić adres zamieszkania w systemie\", step: \"receive_query\"},\n        delay: 4000\n    },\n    {\n        name: \"4. Wyszukiwanie - brak wyników\",\n        payload: {input: \"Chcę zmienić adres zamieszkania w systemie\", step: \"search_qdrant\"},\n        delay: 6000\n    },\n    {\n        name: \"6. Prośba o dodatkowe szczegóły\",\n        payload: {input: \"\", step: \"ask_details\", original_query: \"Chcę zmienić adres zamieszkania w systemie\"},\n        delay: 8000\n    },\n    {\n        name: \"7. Użytkownik podaje więcej informacji\",\n        payload: {input: \"Chcę zgłosić do BOSU zmianę mojego adresu zamieszkania\", step: \"receive_details\", original_query: \"Chcę zmienić adres zamieszkania w systemie\"},\n        delay: 10000\n    },\n    {\n        name: \"8. Wyszukiwanie z detalami - nadal brak\",\n        payload: {input: \"Chcę zgłosić do BOSU zmianę mojego adresu zamieszkania\", step: \"search_with_details\", original_query: \"Chcę zmienić adres zamieszkania w systemie\"},\n        delay: 12000\n    },\n    {\n        name: \"9. Pytanie czy utworzyć ticket\",\n        payload: {step: \"ask_create_ticket\", input: \"Chcę zgłosić do BOSU zmianę mojego adresu zamieszkania\"},\n        delay: 14000\n    },\n    {\n        name: \"10. Tworzenie ticketu\",\n        payload: {step: \"classify_and_create_ticket\", input: \"Chcę zgłosić do BOSU zmianę mojego adresu zamieszkania\", create_ticket: true},\n        delay: 16000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? NIE\",\n        payload: {input: \"\", step: \"ask_continue\", continue: false},\n        delay: 18000\n    },\n    {\n        name: \"12. Pożegnanie\",\n        payload: {input: \"\", step: \"farewell\"},\n        delay: 20000\n    }\n];\n\nconversation.forEach((step, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: step.payload,\n            conversation_step: step.name,\n            step_number: index + 1,\n            sequence: \"SEKWENCJA 3: Z utworzeniem ticketu\"\n        });\n    }, step.delay);\n});\n\nnode.status({fill: \"orange\", shape: \"dot\", text: \"Sekwencja 3 uruchomiona - 11 kroków\"});\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 670,
+        "y": 420,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "seq4_multiple_questions",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "SEKWENCJA 4: Rozmowa z wieloma pytaniami",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 240,
+        "y": 480,
+        "wires": [
+            [
+                "seq4_function"
+            ]
+        ]
+    },
+    {
+        "id": "seq4_function",
+        "type": "function",
+        "z": "bcd37c70fd470577",
+        "name": "Sekwencja 4: Wiele pytań",
+        "func": "// SEKWENCJA 4: Rozmowa z wieloma pytaniami (kontynuacja = TAK)\nconst conversation = [\n    {\n        name: \"1. Powitanie\",\n        payload: {input: \"\", step: \"greeting\"},\n        delay: 0\n    },\n    {\n        name: \"2. Zapytanie jak pomóc\",\n        payload: {input: \"\", step: \"ask_for_help\"},\n        delay: 2000\n    },\n    {\n        name: \"3. Pierwsze pytanie\",\n        payload: {input: \"Jakie są dostępne formy płatności w Extranecie?\", step: \"receive_query\"},\n        delay: 4000\n    },\n    {\n        name: \"4-5. Wyszukiwanie i odpowiedź\",\n        payload: {input: \"Jakie są dostępne formy płatności w Extranecie?\", step: \"search_qdrant\"},\n        delay: 6000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? TAK\",\n        payload: {input: \"\", step: \"ask_continue\", continue: true},\n        delay: 8000\n    },\n    {\n        name: \"3. Drugie pytanie (powrót do kroku 3)\",\n        payload: {input: \"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\", step: \"receive_query\"},\n        delay: 10000\n    },\n    {\n        name: \"4-5. Wyszukiwanie i odpowiedź\",\n        payload: {input: \"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\", step: \"search_qdrant\"},\n        delay: 12000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? NIE\",\n        payload: {input: \"\", step: \"ask_continue\", continue: false},\n        delay: 14000\n    },\n    {\n        name: \"12. Pożegnanie\",\n        payload: {input: \"\", step: \"farewell\"},\n        delay: 16000\n    }\n];\n\nconversation.forEach((step, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: step.payload,\n            conversation_step: step.name,\n            step_number: index + 1,\n            sequence: \"SEKWENCJA 4: Wiele pytań\"\n        });\n    }, step.delay);\n});\n\nnode.status({fill: \"blue\", shape: \"dot\", text: \"Sekwencja 4 uruchomiona - 9 kroków\"});\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 670,
+        "y": 480,
+        "wires": [
+            [
+                "b5ad4344160f8d82"
+            ]
+        ]
+    },
+    {
+        "id": "b5ad4344160f8d82",
+        "type": "function",
+        "z": "bcd37c70fd470577",
+        "name": "Sekwencja testów",
+        "func": "// Przygotuj sekwencję testów z aktualnymi pytaniami\nconst tests = [\n    {\n        name: \"Test 1: Prawa i obowiązki Użytkownika\",\n        payload: {input: \"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\", step: \"receive_query\"},\n        delay: 0\n    },\n    {\n        name: \"Test 2: Formy płatności\",\n        payload: {input: \"Jakie są dostępne formy płatności w Extranecie?\", step: \"receive_query\"},\n        delay: 5000\n    },\n    {\n        name: \"Test 3: Reklamacja oceny\",\n        payload: {input: \"W jakim czasie mogę złożyć reklamację oceny?\", step: \"receive_query\"},\n        delay: 10000\n    },\n    {\n        name: \"Test 4: Kontynuacja - pełna procedura\",\n        payload: {\n            input: \"Przedstaw całą procedurę reklamacji oceny\",\n            step: \"receive_details\",\n            original_query: \"W jakim czasie mogę złożyć reklamację oceny?\"\n        },\n        delay: 15000\n    },\n    {\n        name: \"Test 5: Dane osobowe i zgłoszenie do BOSU - zmiana adresu\",\n        payload: {input: \"Chcę sprawdzić jakie moje dane osobowe są w systemie i zgłosić do BOSU zmianę mojego adresu zamieszkania\", step: \"receive_query\"},\n        delay: 20000\n    }\n];\n\n// Wyślij testy z opóźnieniem\ntests.forEach((test, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: test.payload,\n            test_name: test.name,\n            test_number: index + 1\n        });\n    }, test.delay);\n});\n\nnode.status({fill: \"blue\", shape: \"dot\", text: \"Sekwencja uruchomiona - 5 testów, 5s między nimi\"});\n\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1110,
+        "y": 300,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
     }
 ]
