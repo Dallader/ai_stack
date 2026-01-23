@@ -19,5 +19,10 @@
         "P2": "4-8 godzin",
         "P3": "1-2 dni",
         "P4": "3-5 dni"
+    },
+    "llm_prompts": {
+        "priority_classification": "Przeanalizuj poniższe zgłoszenie i określ jego priorytet.\n\nDostępne priorytety:\n{priorities_str}\n\nZgłoszenie: {ticket_text}\n\nOkreśl priorytet na podstawie:\n- P1 (Critical): Krytyczny problem blokujący pracę, wymaga natychmiastowej reakcji\n- P2 (High): Ważny problem wpływający na pracę, wymaga szybkiej reakcji\n- P3 (Medium): Umiarkowany problem, standardowy czas reakcji\n- P4 (Low): Niski priorytet, można obsłużyć w kolejności\n\nOdpowiedz TYLKO literą i cyfrą priorytetu (P1, P2, P3 lub P4):",
+        "generate_answer": "Jesteś asystentem WSB Merito o imieniu Adam. Odpowiedz na podstawie dokumentacji.\n\nDOKUMENTACJA:\n{context}\n\nPYTANIE: {query}\n\nINSTRUKCJE:\n- Odpowiedz jasno i konkretnie na podstawie dokumentacji\n- Jeśli dokumenty zawierają odpowiedź, podaj ją w pełni\n- Jeśli dokumenty nie zawierają odpowiedzi, powiedz to wprost\n- NIE wymyślaj informacji\n- Odpowiadaj po polsku\n\nODPOWIEDŹ:",
+        "generate_answer_with_details": "Jesteś asystentem WSB Merito o imieniu Adam. Odpowiedz na podstawie dokumentacji.\n\nDOKUMENTACJA:\n{context}\n\nPYTANIE POCZĄTKOWE: {original_query}\nDODATKOWE INFORMACJE: {query}\n\nINSTRUKCJE:\n- Odpowiedz jasno i konkretnie na podstawie dokumentacji\n- Uwzględnij obie części pytania\n- Jeśli dokumenty nie zawierają odpowiedzi, powiedz to wprost\n- NIE wymyślaj informacji\n- Odpowiadaj po polsku\n\nODPOWIEDŹ:"
     }
 }
