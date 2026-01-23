@@ -1,0 +1,7 @@
+{
+    "local ": true,
+    "local_host": "localhost",
+    "server_host": "192.168.0.76",
+    "vector_size": "768",
+    "score_threshold": 0.3
+}
