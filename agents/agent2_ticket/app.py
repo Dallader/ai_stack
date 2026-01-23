@@ -38,8 +38,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-llm = ChatOllama(model="tinyllama", base_url="http://ollama:11434")
-embeddings = OllamaEmbeddings(model="nomic-embed-text", base_url="http://ollama:11434")
+llm = ChatOllama(
+    model="tinyllama", 
+    base_url="http://ollama:11434"
+)
+embeddings = OllamaEmbeddings(
+    model="nomic-embed-text", 
+    base_url="http://ollama:11434"
+)
 
 COLLECTION = os.getenv("COLLECTION", "agent2_tickets")
 QDRANT_URL = os.getenv("QDRANT_URL", "http://qdrant:6333")
@@ -646,6 +652,73 @@ async def list_documents():
         return {"documents": list(documents.values()), "total": len(documents)}
         
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/reindex")
+async def reindex():
+    """Reindex all documents from the documents folder"""
+    try:
+        import glob
+        
+        documents_dir = "documents"
+        if not os.path.exists(documents_dir):
+            return {
+                "status": "error",
+                "error": "documents folder not found"
+            }
+        
+        # Get all supported files
+        all_files = []
+        for ext in ['.txt', '.pdf', '.docx', '.doc']:
+            all_files.extend(glob.glob(f"{documents_dir}/**/*{ext}", recursive=True))
+        
+        if not all_files:
+            return {
+                "status": "warning",
+                "message": "No documents found to reindex",
+                "files_processed": 0
+            }
+        
+        results = []
+        for file_path in all_files:
+            try:
+                filename = os.path.basename(file_path)
+                print(f"📄 Reindexing: {filename}")
+                
+                with open(file_path, 'rb') as f:
+                    content = f.read()
+                
+                result = document_uploader.upload_file(
+                    file_content=content,
+                    filename=filename,
+                    category="Document"
+                )
+                
+                results.append(result)
+                print(f"✓ {filename}: {result.get('chunks_uploaded', 0)} chunks")
+                
+            except Exception as e:
+                print(f"✗ Error processing {filename}: {e}")
+                results.append({
+                    "filename": filename,
+                    "status": "error",
+                    "error": str(e)
+                })
+        
+        successful = len([r for r in results if r.get("status") == "success"])
+        total_chunks = sum([r.get("chunks_uploaded", 0) for r in results if r.get("status") == "success"])
+        
+        return {
+            "status": "success",
+            "files_processed": len(all_files),
+            "successful": successful,
+            "total_chunks": total_chunks,
+            "results": results
+        }
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health")

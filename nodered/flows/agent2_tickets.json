@@ -1,16 +1,16 @@
 [
     {
-        "id": "test_enhanced_rag",
+        "id": "bcd37c70fd470577",
         "type": "tab",
         "label": "Agent2 - Enhanced RAG Test",
         "disabled": false,
         "info": "Testy ulepszonego systemu RAG z przeszukiwaniem Qdrant"
     },
     {
-        "id": "inject_test1",
+        "id": "step1_greeting",
         "type": "inject",
-        "z": "test_enhanced_rag",
-        "name": "Test 1: Pytanie o Prawa i obowiązki Użytkownika Serwisu",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 1: Greeting (Powitanie)",
         "props": [
             {
                 "p": "payload"
@@ -21,46 +21,21 @@
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "{\"input\":\"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\",\"step\":\"initial\"}",
+        "payload": "{\"input\":\"\",\"step\":\"greeting\"}",
         "payloadType": "json",
-        "x": 270,
-        "y": 520,
-        "wires": [
-            [
-                "http_agent2"
-            ]
-        ]
-    },
-    {
-        "id": "inject_test2",
-        "type": "inject",
-        "z": "test_enhanced_rag",
-        "name": "Test 2: Formy Płstności",
-        "props": [
-            {
-                "p": "payload"
-            }
-        ],
-        "repeat": "",
-        "crontab": "",
-        "once": false,
-        "onceDelay": 0.1,
-        "topic": "",
-        "payload": "{\"input\":\"Jakie są dostępne formy płatności w Exntranecie?\",\"step\":\"initial\"}",
-        "payloadType": "json",
-        "x": 160,
+        "x": 180,
         "y": 580,
         "wires": [
             [
-                "http_agent2"
+                "c380192ce02f89b2"
             ]
         ]
     },
     {
-        "id": "inject_test3",
+        "id": "step2_ask_help",
         "type": "inject",
-        "z": "test_enhanced_rag",
-        "name": "Test 3: Reklamacja oceny",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 2: Ask for Help (Jak mogę pomóc)",
         "props": [
             {
                 "p": "payload"
@@ -71,21 +46,21 @@
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "{\"input\":\"W jakim czasie mogę złożyć reklamacje oceny?\",\"step\":\"initial\"}",
+        "payload": "{\"input\":\"\",\"step\":\"ask_for_help\"}",
         "payloadType": "json",
-        "x": 170,
+        "x": 210,
         "y": 640,
         "wires": [
             [
-                "http_agent2"
+                "c380192ce02f89b2"
             ]
         ]
     },
     {
-        "id": "inject_test4",
+        "id": "step3_query1",
         "type": "inject",
-        "z": "test_enhanced_rag",
-        "name": "Test 4: Kontynuacja z detalami",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 3: Query - Prawa i obowiązki",
         "props": [
             {
                 "p": "payload"
@@ -96,20 +71,170 @@
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "{\"input\":\"Przedstaw całą procedure reklamacji oceny\",\"step\":\"need_details\",\"original_query\":\"W jakim czasie mogę złożyć reklamacje oceny?\"}",
+        "payload": "{\"input\":\"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\",\"step\":\"receive_query\"}",
         "payloadType": "json",
-        "x": 190,
+        "x": 200,
         "y": 700,
         "wires": [
             [
-                "http_agent2"
+                "c380192ce02f89b2"
             ]
         ]
     },
     {
-        "id": "inject_health",
+        "id": "step3_query2",
         "type": "inject",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 3: Query - Formy płatności",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Jakie są dostępne formy płatności w Extranecie?\",\"step\":\"receive_query\"}",
+        "payloadType": "json",
+        "x": 190,
+        "y": 760,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "step3_query3",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 3: Query - Reklamacja oceny",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"W jakim czasie mogę złożyć reklamację oceny?\",\"step\":\"receive_query\"}",
+        "payloadType": "json",
+        "x": 200,
+        "y": 820,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "step7_details",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 7: Receive Details - Więcej info",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Przedstaw całą procedurę reklamacji oceny\",\"step\":\"receive_details\",\"original_query\":\"W jakim czasie mogę złożyć reklamację oceny?\"}",
+        "payloadType": "json",
+        "x": 200,
+        "y": 880,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "step9_create_ticket",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 9-10: Create Ticket - Dane osobowe BOSU",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Chcę sprawdzić jakie moje dane osobowe są w systemie i zgłosić do BOSU zmianę mojego adresu zamieszkania\",\"step\":\"ask_create_ticket\",\"create_ticket\":true}",
+        "payloadType": "json",
+        "x": 240,
+        "y": 940,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "step11_continue_yes",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 11: Continue - TAK (kolejne pytanie)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"\",\"step\":\"ask_continue\",\"continue\":true}",
+        "payloadType": "json",
+        "x": 220,
+        "y": 1000,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "step12_farewell",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "Krok 12: Farewell (Pożegnanie)",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"\",\"step\":\"farewell\"}",
+        "payloadType": "json",
+        "x": 190,
+        "y": 1060,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "bfd5b8b982ac2442",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
         "name": "Health Check",
         "props": [
             {
@@ -124,17 +249,17 @@
         "payload": "",
         "payloadType": "date",
         "x": 130,
-        "y": 100,
+        "y": 60,
         "wires": [
             [
-                "http_health"
+                "1a180e3eb908dbc6"
             ]
         ]
     },
     {
-        "id": "inject_stats",
+        "id": "4c26b4df546205ac",
         "type": "inject",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "Stats - Statystyki kolekcji",
         "props": [
             {
@@ -149,17 +274,17 @@
         "payload": "",
         "payloadType": "date",
         "x": 170,
-        "y": 160,
+        "y": 120,
         "wires": [
             [
-                "http_stats"
+                "87c0c67956953d1a"
             ]
         ]
     },
     {
-        "id": "inject_reindex",
+        "id": "931ef153754c4bc3",
         "type": "inject",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "REINDEX - Załaduj ponownie dokumenty",
         "props": [
             {
@@ -174,17 +299,17 @@
         "payload": "",
         "payloadType": "date",
         "x": 220,
-        "y": 220,
+        "y": 180,
         "wires": [
             [
-                "http_reindex"
+                "d1722fe5a1fa4198"
             ]
         ]
     },
     {
-        "id": "inject_list_docs",
+        "id": "38c6377fe53ce66e",
         "type": "inject",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "Lista dokumentów w Qdrant",
         "props": [
             {
@@ -199,17 +324,17 @@
         "payload": "",
         "payloadType": "date",
         "x": 180,
-        "y": 280,
+        "y": 240,
         "wires": [
             [
-                "http_list_docs"
+                "289fab2bb84f372a"
             ]
         ]
     },
     {
-        "id": "http_agent2",
+        "id": "c380192ce02f89b2",
         "type": "http request",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "POST /run",
         "method": "POST",
         "ret": "obj",
@@ -229,19 +354,19 @@
                 "valueValue": "application/json"
             }
         ],
-        "x": 590,
-        "y": 600,
+        "x": 1330,
+        "y": 380,
         "wires": [
             [
-                "switch_response",
-                "debug_all"
+                "32a76c72281e0269",
+                "73e92787ec9354d9"
             ]
         ]
     },
     {
-        "id": "http_health",
+        "id": "1a180e3eb908dbc6",
         "type": "http request",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "GET /health",
         "method": "GET",
         "ret": "obj",
@@ -254,18 +379,18 @@
         "authType": "",
         "senderr": false,
         "headers": [],
-        "x": 590,
-        "y": 100,
+        "x": 490,
+        "y": 60,
         "wires": [
             [
-                "debug_health"
+                "2969d110b991a75a"
             ]
         ]
     },
     {
-        "id": "http_stats",
+        "id": "87c0c67956953d1a",
         "type": "http request",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "GET /stats",
         "method": "GET",
         "ret": "obj",
@@ -278,18 +403,18 @@
         "authType": "",
         "senderr": false,
         "headers": [],
-        "x": 590,
-        "y": 160,
+        "x": 490,
+        "y": 120,
         "wires": [
             [
-                "debug_stats"
+                "59e3e2247f89b656"
             ]
         ]
     },
     {
-        "id": "http_reindex",
+        "id": "d1722fe5a1fa4198",
         "type": "http request",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "POST /reindex",
         "method": "POST",
         "ret": "obj",
@@ -302,18 +427,18 @@
         "authType": "",
         "senderr": false,
         "headers": [],
-        "x": 600,
-        "y": 220,
+        "x": 500,
+        "y": 180,
         "wires": [
             [
-                "debug_reindex"
+                "04c658b32a45d64c"
             ]
         ]
     },
     {
-        "id": "http_list_docs",
+        "id": "289fab2bb84f372a",
         "type": "http request",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "GET /documents",
         "method": "GET",
         "ret": "obj",
@@ -326,18 +451,18 @@
         "authType": "",
         "senderr": false,
         "headers": [],
-        "x": 610,
-        "y": 280,
+        "x": 510,
+        "y": 240,
         "wires": [
             [
-                "debug_list_docs"
+                "6c5ecce85eb34337"
             ]
         ]
     },
     {
-        "id": "switch_response",
+        "id": "32a76c72281e0269",
         "type": "switch",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "Analiza odpowiedzi",
         "property": "payload.step",
         "propertyType": "msg",
@@ -364,27 +489,27 @@
         "checkall": "false",
         "repair": false,
         "outputs": 4,
-        "x": 830,
-        "y": 600,
+        "x": 1550,
+        "y": 360,
         "wires": [
             [
-                "func_completed"
+                "8e173b1d0999e9d4"
             ],
             [
-                "func_need_details"
+                "86b83bdfdf377c76"
             ],
             [
-                "func_ticket_created"
+                "dd4a93a5a2b8ab8f"
             ],
             [
-                "debug_error"
+                "83f4199c57bd1019"
             ]
         ]
     },
     {
-        "id": "func_completed",
+        "id": "8e173b1d0999e9d4",
         "type": "function",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "Format: Odpowiedź znaleziona",
         "func": "const data = msg.payload;\n\nmsg.payload = {\n    status: \"✅ SUKCES - Znaleziono odpowiedź\",\n    response: data.response,\n    documents_found: data.documents_found || 0,\n    rag_results: data.rag_results || [],\n    collection: data.collection,\n    step: data.step\n};\n\nreturn msg;",
         "outputs": 1,
@@ -393,18 +518,18 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1150,
-        "y": 420,
+        "x": 1850,
+        "y": 260,
         "wires": [
             [
-                "debug_completed"
+                "7abd3d35aebe2b17"
             ]
         ]
     },
     {
-        "id": "func_need_details",
+        "id": "86b83bdfdf377c76",
         "type": "function",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "Format: Potrzeba szczegółów",
         "func": "const data = msg.payload;\n\nmsg.payload = {\n    status: \"⚠️ BRAK WYNIKÓW - Proszę o więcej szczegółów\",\n    response: data.response,\n    original_query: data.original_query,\n    documents_found: data.documents_found || 0,\n    collection: data.collection,\n    step: data.step,\n    next_action: \"Użyj Test 4 z original_query z tej odpowiedzi\"\n};\n\nreturn msg;",
         "outputs": 1,
@@ -413,18 +538,18 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1150,
-        "y": 480,
+        "x": 1850,
+        "y": 320,
         "wires": [
             [
-                "debug_need_details"
+                "c7de2b9fe531f113"
             ]
         ]
     },
     {
-        "id": "func_ticket_created",
+        "id": "dd4a93a5a2b8ab8f",
         "type": "function",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "Format: Ticket utworzony",
         "func": "const data = msg.payload;\n\nmsg.payload = {\n    status: \"🎫 TICKET UTWORZONY\",\n    response: data.response,\n    ticket: data.ticket || {},\n    documents_found: data.documents_found || 0,\n    collection: data.collection,\n    step: data.step\n};\n\nreturn msg;",
         "outputs": 1,
@@ -433,18 +558,18 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1130,
-        "y": 540,
+        "x": 1830,
+        "y": 380,
         "wires": [
             [
-                "debug_ticket"
+                "e0385c7f6985e868"
             ]
         ]
     },
     {
-        "id": "debug_completed",
+        "id": "7abd3d35aebe2b17",
         "type": "debug",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "Odpowiedź znaleziona",
         "active": true,
         "tosidebar": true,
@@ -454,14 +579,14 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 1440,
-        "y": 420,
+        "x": 2120,
+        "y": 260,
         "wires": []
     },
     {
-        "id": "debug_need_details",
+        "id": "c7de2b9fe531f113",
         "type": "debug",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "Potrzeba szczegółów",
         "active": true,
         "tosidebar": true,
@@ -471,14 +596,14 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 1440,
-        "y": 480,
+        "x": 2120,
+        "y": 320,
         "wires": []
     },
     {
-        "id": "debug_ticket",
+        "id": "e0385c7f6985e868",
         "type": "debug",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "Ticket utworzony",
         "active": true,
         "tosidebar": true,
@@ -488,14 +613,14 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 1430,
-        "y": 540,
+        "x": 2110,
+        "y": 380,
         "wires": []
     },
     {
-        "id": "debug_error",
+        "id": "83f4199c57bd1019",
         "type": "debug",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "Błąd",
         "active": true,
         "tosidebar": true,
@@ -505,14 +630,14 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 1390,
-        "y": 600,
+        "x": 1770,
+        "y": 440,
         "wires": []
     },
     {
-        "id": "debug_all",
+        "id": "73e92787ec9354d9",
         "type": "debug",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "Pełna odpowiedź",
         "active": true,
         "tosidebar": true,
@@ -522,14 +647,14 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 830,
-        "y": 680,
+        "x": 1550,
+        "y": 440,
         "wires": []
     },
     {
-        "id": "debug_health",
+        "id": "2969d110b991a75a",
         "type": "debug",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "Health",
         "active": true,
         "tosidebar": true,
@@ -539,14 +664,14 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 810,
-        "y": 100,
+        "x": 690,
+        "y": 60,
         "wires": []
     },
     {
-        "id": "debug_stats",
+        "id": "59e3e2247f89b656",
         "type": "debug",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "Statystyki",
         "active": true,
         "tosidebar": true,
@@ -556,14 +681,14 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 820,
-        "y": 160,
+        "x": 700,
+        "y": 120,
         "wires": []
     },
     {
-        "id": "debug_reindex",
+        "id": "04c658b32a45d64c",
         "type": "debug",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "Reindex",
         "active": true,
         "tosidebar": true,
@@ -573,14 +698,14 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 820,
-        "y": 220,
+        "x": 700,
+        "y": 180,
         "wires": []
     },
     {
-        "id": "debug_list_docs",
+        "id": "6c5ecce85eb34337",
         "type": "debug",
-        "z": "test_enhanced_rag",
+        "z": "bcd37c70fd470577",
         "name": "Dokumenty",
         "active": true,
         "tosidebar": true,
@@ -590,25 +715,25 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 830,
-        "y": 280,
+        "x": 710,
+        "y": 240,
         "wires": []
     },
     {
-        "id": "comment_info",
+        "id": "comment_individual",
         "type": "comment",
-        "z": "test_enhanced_rag",
-        "name": "⚠️ WAŻNE: Najpierw uruchom REINDEX!",
-        "info": "## KROK 1: REINDEX\nPrzed testami kliknij przycisk '🔄 REINDEX' aby załadować dokumenty do Qdrant!",
-        "x": 200,
-        "y": 380,
+        "z": "bcd37c70fd470577",
+        "name": "📋 INDYWIDUALNE KROKI - Testuj każdy krok osobno",
+        "info": "## Indywidualne kroki workflow\nMożesz testować każdy krok osobno klikając odpowiedni przycisk",
+        "x": 260,
+        "y": 540,
         "wires": []
     },
     {
-        "id": "inject_sequence",
+        "id": "seq1_full_success",
         "type": "inject",
-        "z": "test_enhanced_rag",
-        "name": "Sekwencja: Pełny test",
+        "z": "bcd37c70fd470577",
+        "name": "SEKWENCJA 1: Pełna rozmowa - sukces (znaleziono odpowiedź)",
         "props": [
             {
                 "p": "payload"
@@ -621,31 +746,186 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 160,
-        "y": 440,
+        "x": 290,
+        "y": 300,
         "wires": [
             [
-                "func_sequence"
+                "seq1_function"
             ]
         ]
     },
     {
-        "id": "func_sequence",
+        "id": "seq1_function",
         "type": "function",
-        "z": "test_enhanced_rag",
-        "name": "Sekwencja testów",
-        "func": "// Przygotuj sekwencję testów\nconst tests = [\n    {\n        name: \"Test 1: WiFi\",\n        payload: {input: \"Jak skonfigurować sieć WiFi?\", step: \"initial\"},\n        delay: 0\n    },\n    {\n        name: \"Test 2: Hasło\",\n        payload: {input: \"Jak zresetować hasło?\", step: \"initial\"},\n        delay: 5000\n    },\n    {\n        name: \"Test 3: Trudne pytanie\",\n        payload: {input: \"Dlaczego mój komputer wybucha?\", step: \"initial\"},\n        delay: 10000\n    },\n    {\n        name: \"Test 4: Kontynuacja\",\n        payload: {\n            input: \"To dotyczy laptopa Dell z Windows 11\",\n            step: \"need_details\",\n            original_query: \"Dlaczego mój komputer wybucha?\"\n        },\n        delay: 15000\n    },\n    {\n        name: \"Test 5: Bezpośrednie zgłoszenie\",\n        payload: {input: \"Potrzebuję nowego monitora\", step: \"create_ticket\"},\n        delay: 20000\n    }\n];\n\n// Wyślij testy z opóźnieniem\ntests.forEach((test, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: test.payload,\n            test_name: test.name,\n            test_number: index + 1\n        });\n    }, test.delay);\n});\n\nnode.status({fill: \"blue\", shape: \"dot\", text: \"Sekwencja uruchomiona - 5s między testami\"});\n\nreturn null;",
+        "z": "bcd37c70fd470577",
+        "name": "Sekwencja 1: Sukces",
+        "func": "// SEKWENCJA 1: Pełna udana rozmowa (pytanie z odpowiedzią w bazie)\nconst conversation = [\n    {\n        name: \"1. Powitanie\",\n        payload: {input: \"\", step: \"greeting\"},\n        delay: 0\n    },\n    {\n        name: \"2. Zapytanie jak pomóc\",\n        payload: {input: \"\", step: \"ask_for_help\"},\n        delay: 2000\n    },\n    {\n        name: \"3. Zapytanie użytkownika\",\n        payload: {input: \"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\", step: \"receive_query\"},\n        delay: 4000\n    },\n    {\n        name: \"4-5. Wyszukiwanie i odpowiedź\",\n        payload: {input: \"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\", step: \"search_qdrant\"},\n        delay: 6000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? NIE\",\n        payload: {input: \"\", step: \"ask_continue\", continue: false},\n        delay: 8000\n    },\n    {\n        name: \"12. Pożegnanie\",\n        payload: {input: \"\", step: \"farewell\"},\n        delay: 10000\n    }\n];\n\nconversation.forEach((step, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: step.payload,\n            conversation_step: step.name,\n            step_number: index + 1,\n            sequence: \"SEKWENCJA 1: Pełna rozmowa - SUKCES\"\n        });\n    }, step.delay);\n});\n\nnode.status({fill: \"green\", shape: \"dot\", text: \"Sekwencja 1 uruchomiona - 6 kroków\"});\nreturn null;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 420,
-        "y": 440,
+        "x": 660,
+        "y": 300,
         "wires": [
             [
-                "http_agent2"
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "seq2_with_details",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "SEKWENCJA 2: Rozmowa z dodatkowymi detalami",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 250,
+        "y": 360,
+        "wires": [
+            [
+                "seq2_function"
+            ]
+        ]
+    },
+    {
+        "id": "seq2_function",
+        "type": "function",
+        "z": "bcd37c70fd470577",
+        "name": "Sekwencja 2: Z detalami",
+        "func": "// SEKWENCJA 2: Rozmowa wymagająca dodatkowych szczegółów\nconst conversation = [\n    {\n        name: \"1. Powitanie\",\n        payload: {input: \"\", step: \"greeting\"},\n        delay: 0\n    },\n    {\n        name: \"2. Zapytanie jak pomóc\",\n        payload: {input: \"\", step: \"ask_for_help\"},\n        delay: 2000\n    },\n    {\n        name: \"3. Zapytanie użytkownika\",\n        payload: {input: \"W jakim czasie mogę złożyć reklamację oceny?\", step: \"receive_query\"},\n        delay: 4000\n    },\n    {\n        name: \"4. Wyszukiwanie - brak wyników\",\n        payload: {input: \"W jakim czasie mogę złożyć reklamację oceny?\", step: \"search_qdrant\"},\n        delay: 6000\n    },\n    {\n        name: \"6. Prośba o dodatkowe szczegóły\",\n        payload: {input: \"\", step: \"ask_details\", original_query: \"W jakim czasie mogę złożyć reklamację oceny?\"},\n        delay: 8000\n    },\n    {\n        name: \"7. Użytkownik podaje więcej informacji\",\n        payload: {input: \"Przedstaw całą procedurę reklamacji oceny\", step: \"receive_details\", original_query: \"W jakim czasie mogę złożyć reklamację oceny?\"},\n        delay: 10000\n    },\n    {\n        name: \"8. Wyszukiwanie z detalami\",\n        payload: {input: \"Przedstaw całą procedurę reklamacji oceny\", step: \"search_with_details\", original_query: \"W jakim czasie mogę złożyć reklamację oceny?\"},\n        delay: 12000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? NIE\",\n        payload: {input: \"\", step: \"ask_continue\", continue: false},\n        delay: 14000\n    },\n    {\n        name: \"12. Pożegnanie\",\n        payload: {input: \"\", step: \"farewell\"},\n        delay: 16000\n    }\n];\n\nconversation.forEach((step, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: step.payload,\n            conversation_step: step.name,\n            step_number: index + 1,\n            sequence: \"SEKWENCJA 2: Z dodatkowymi detalami\"\n        });\n    }, step.delay);\n});\n\nnode.status({fill: \"yellow\", shape: \"dot\", text: \"Sekwencja 2 uruchomiona - 9 kroków\"});\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 670,
+        "y": 360,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "seq3_create_ticket",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "SEKWENCJA 3: Rozmowa z utworzeniem ticketu",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 240,
+        "y": 420,
+        "wires": [
+            [
+                "seq3_function"
+            ]
+        ]
+    },
+    {
+        "id": "seq3_function",
+        "type": "function",
+        "z": "bcd37c70fd470577",
+        "name": "Sekwencja 3: Z ticketem",
+        "func": "// SEKWENCJA 3: Rozmowa kończąca się utworzeniem ticketu\nconst conversation = [\n    {\n        name: \"1. Powitanie\",\n        payload: {step: \"greeting\"},\n        delay: 0\n    },\n    {\n        name: \"2. Zapytanie jak pomóc\",\n        payload: {step: \"ask_for_help\"},\n        delay: 2000\n    },\n    {\n        name: \"3. Zapytanie użytkownika\",\n        payload: {input: \"Chcę zmienić adres zamieszkania w systemie\", step: \"receive_query\"},\n        delay: 4000\n    },\n    {\n        name: \"4. Wyszukiwanie - brak wyników\",\n        payload: {input: \"Chcę zmienić adres zamieszkania w systemie\", step: \"search_qdrant\"},\n        delay: 6000\n    },\n    {\n        name: \"6. Prośba o dodatkowe szczegóły\",\n        payload: {step: \"ask_details\", original_query: \"Chcę zmienić adres zamieszkania w systemie\"},\n        delay: 8000\n    },\n    {\n        name: \"7. Użytkownik podaje więcej informacji\",\n        payload: {input: \"Chcę zgłosić do BOSU zmianę mojego adresu zamieszkania\", step: \"receive_details\", original_query: \"Chcę zmienić adres zamieszkania w systemie\"},\n        delay: 10000\n    },\n    {\n        name: \"8. Wyszukiwanie z detalami - nadal brak\",\n        payload: {input: \"Chcę zgłosić do BOSU zmianę mojego adresu zamieszkania\", step: \"search_with_details\", original_query: \"Chcę zmienić adres zamieszkania w systemie\"},\n        delay: 12000\n    },\n    {\n        name: \"9. Pytanie czy utworzyć ticket\",\n        payload: {step: \"ask_create_ticket\", input: \"Chcę zgłosić do BOSU zmianę mojego adresu zamieszkania\"},\n        delay: 14000\n    },\n    {\n        name: \"10. Tworzenie ticketu\",\n        payload: {step: \"classify_and_create_ticket\", input: \"Chcę zgłosić do BOSU zmianę mojego adresu zamieszkania\", create_ticket: true},\n        delay: 16000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? NIE\",\n        payload: {step: \"ask_continue\", continue: false},\n        delay: 18000\n    },\n    {\n        name: \"12. Pożegnanie\",\n        payload: {step: \"farewell\"},\n        delay: 20000\n    }\n];\n\nconversation.forEach((step, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: step.payload,\n            conversation_step: step.name,\n            step_number: index + 1,\n            sequence: \"SEKWENCJA 3: Z utworzeniem ticketu\"\n        });\n    }, step.delay);\n});\n\nnode.status({fill: \"orange\", shape: \"dot\", text: \"Sekwencja 3 uruchomiona - 11 kroków\"});\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 670,
+        "y": 420,
+        "wires": [
+            [
+                "c380192ce02f89b2"
+            ]
+        ]
+    },
+    {
+        "id": "seq4_multiple_questions",
+        "type": "inject",
+        "z": "bcd37c70fd470577",
+        "name": "SEKWENCJA 4: Rozmowa z wieloma pytaniami",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 240,
+        "y": 480,
+        "wires": [
+            [
+                "seq4_function"
+            ]
+        ]
+    },
+    {
+        "id": "seq4_function",
+        "type": "function",
+        "z": "bcd37c70fd470577",
+        "name": "Sekwencja 4: Wiele pytań",
+        "func": "// SEKWENCJA 4: Rozmowa z wieloma pytaniami (kontynuacja = TAK)\nconst conversation = [\n    {\n        name: \"1. Powitanie\",\n        payload: {step: \"greeting\"},\n        delay: 0\n    },\n    {\n        name: \"2. Zapytanie jak pomóc\",\n        payload: {step: \"ask_for_help\"},\n        delay: 2000\n    },\n    {\n        name: \"3. Pierwsze pytanie\",\n        payload: {input: \"Jakie są dostępne formy płatności w Extranecie?\", step: \"receive_query\"},\n        delay: 4000\n    },\n    {\n        name: \"4-5. Wyszukiwanie i odpowiedź\",\n        payload: {input: \"Jakie są dostępne formy płatności w Extranecie?\", step: \"search_qdrant\"},\n        delay: 6000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? TAK\",\n        payload: {step: \"ask_continue\", continue: true},\n        delay: 8000\n    },\n    {\n        name: \"3. Drugie pytanie (powrót do kroku 3)\",\n        payload: {input: \"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\", step: \"receive_query\"},\n        delay: 10000\n    },\n    {\n        name: \"4-5. Wyszukiwanie i odpowiedź\",\n        payload: {input: \"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\", step: \"search_qdrant\"},\n        delay: 12000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? NIE\",\n        payload: {step: \"ask_continue\", continue: false},\n        delay: 14000\n    },\n    {\n        name: \"12. Pożegnanie\",\n        payload: {step: \"farewell\"},\n        delay: 16000\n    }\n];\n\nconversation.forEach((step, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: step.payload,\n            conversation_step: step.name,\n            step_number: index + 1,\n            sequence: \"SEKWENCJA 4: Wiele pytań\"\n        });\n    }, step.delay);\n});\n\nnode.status({fill: \"blue\", shape: \"dot\", text: \"Sekwencja 4 uruchomiona - 9 kroków\"});\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 670,
+        "y": 480,
+        "wires": [
+            [
+                "b5ad4344160f8d82"
+            ]
+        ]
+    },
+    {
+        "id": "b5ad4344160f8d82",
+        "type": "function",
+        "z": "bcd37c70fd470577",
+        "name": "Sekwencja testów",
+        "func": "// Przygotuj sekwencję testów z aktualnymi pytaniami\nconst tests = [\n    {\n        name: \"Test 1: Prawa i obowiązki Użytkownika\",\n        payload: {input: \"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\", step: \"receive_query\"},\n        delay: 0\n    },\n    {\n        name: \"Test 2: Formy płatności\",\n        payload: {input: \"Jakie są dostępne formy płatności w Extranecie?\", step: \"receive_query\"},\n        delay: 5000\n    },\n    {\n        name: \"Test 3: Reklamacja oceny\",\n        payload: {input: \"W jakim czasie mogę złożyć reklamację oceny?\", step: \"receive_query\"},\n        delay: 10000\n    },\n    {\n        name: \"Test 4: Kontynuacja - pełna procedura\",\n        payload: {\n            input: \"Przedstaw całą procedurę reklamacji oceny\",\n            step: \"receive_details\",\n            original_query: \"W jakim czasie mogę złożyć reklamację oceny?\"\n        },\n        delay: 15000\n    },\n    {\n        name: \"Test 5: Dane osobowe i zgłoszenie do BOSU - zmiana adresu\",\n        payload: {input: \"Chcę sprawdzić jakie moje dane osobowe są w systemie i zgłosić do BOSU zmianę mojego adresu zamieszkania\", step: \"receive_query\"},\n        delay: 20000\n    }\n];\n\n// Wyślij testy z opóźnieniem\ntests.forEach((test, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: test.payload,\n            test_name: test.name,\n            test_number: index + 1\n        });\n    }, test.delay);\n});\n\nnode.status({fill: \"blue\", shape: \"dot\", text: \"Sekwencja uruchomiona - 5 testów, 5s między nimi\"});\n\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1110,
+        "y": 300,
+        "wires": [
+            [
+                "c380192ce02f89b2"
             ]
         ]
     }
