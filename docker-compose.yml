@@ -11,8 +11,6 @@ services:
       - qdrant_data:/qdrant/storage
     networks:
       - ai_network
-    profiles:
-      - necessary
 
   ollama:
     image: ollama/ollama:latest
@@ -49,8 +47,6 @@ services:
       ollama pull llama3.2:1b && 
       ollama pull nomic-embed-text &&
       wait $pid"
-    profiles:
-      - necessary
 
   # WebUI (depends on Ollama)
   open-webui:
@@ -125,8 +121,6 @@ services:
         condition: service_started
       ollama:
         condition: service_healthy
-    profiles:
-      - necessary
 
   agent3_analytics:
     build:
@@ -205,8 +199,6 @@ services:
       - nodered_data:/data
     networks:
       - ai_network
-    profiles:
-      - necessary
 
 volumes:
   qdrant_data:
