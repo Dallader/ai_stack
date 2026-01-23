@@ -22,7 +22,7 @@ try:
 except ImportError:
     openpyxl = None
 
-from langchain_community.embeddings import OllamaEmbeddings
+from langchain_ollama import OllamaEmbeddings
 from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct
 
