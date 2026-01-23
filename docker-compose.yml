@@ -22,6 +22,17 @@ services:
       - ollama_data:/root/.ollama
     networks:
       - ai_network
+    deploy:
+      resources:
+        limits:
+          cpus: '8.0'  # Limit to 8 CPU cores
+          memory: 8G   # Limit to 8GB RAM
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     entrypoint: ["/bin/bash", "-c"]
     command: >
       "ollama serve & 
@@ -29,6 +40,7 @@ services:
       sleep 10 && 
       ollama pull tinyllama && 
       ollama pull llama3.2:1b && 
+      ollama pull nomic-embed-text &&
       wait $pid"
 
   # WebUI (depends on Ollama)
@@ -80,9 +92,17 @@ services:
       - COLLECTION=agent2_tickets
       - QDRANT_URL=http://qdrant:6333
       - OLLAMA_BASE_URL=http://ollama:11434
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     depends_on:
-      - qdrant
-      - ollama
+      qdrant:
+        condition: service_started
+      ollama:
+        condition: service_healthy
 
   agent3_analytics:
     build:
