@@ -26,33 +26,35 @@ A complete AI stack with 5 specialized agents, orchestration via Node-RED, vecto
 - At least 8GB RAM available
 - 20GB free disk space
 
-### Start All Services
+### Start Services
+
+The startup behavior depends on the `start_necessary` setting in `agents/agent2_ticket/host_settings.json`:
+
+- If `start_necessary: true` → Starts only essential services: Qdrant, Ollama, Agent2 (Ticket), Node-RED
+- If `start_necessary: false` → Starts all services
 
 ```bash
 # Make the script executable
-chmod +x start.sh
+chmod +x start.py
 
-# Start the stack
-./start.sh
+# Start the stack (automatically checks host_settings.json)
+python3 start.py
 ```
 
 The script will:
 1. ✅ Check Docker is running
-2. 📦 Build all services
+2. 📦 Build selected services
 3. 🔍 Wait for services to be healthy
-4. 📥 Pull the llama3 model if needed
-
-### Stop All Services
-
-```bash
-./stop.sh
-```
+4. 📥 Pull the required models if needed
 
 ### Manual Commands
 
 ```bash
-# Start all services
+# Start all services (ignores host_settings.json)
 docker-compose up -d --build
+
+# Start only necessary services
+docker-compose --profile necessary up -d --build
 
 # View logs
 docker-compose logs -f
