@@ -358,8 +358,45 @@
         "y": 380,
         "wires": [
             [
-                "32a76c72281e0269",
-                "73e92787ec9354d9"
+                "dedupe_key_agent2"
+            ]
+        ]
+    },
+    {
+        "id": "dedupe_key_agent2",
+        "type": "function",
+        "z": "bcd37c70fd470577",
+        "name": "Build dedupe key",
+        "func": "const payload = msg.payload || {};\nconst keyPayload = {\n    response: payload.response || '',\n    step: payload.step || '',\n    next_step: payload.next_step || '',\n    documents_found: payload.documents_found || 0,\n    original_query: payload.original_query || '',\n    input: payload.input || ''\n};\nmsg.dedupe_key = JSON.stringify(keyPayload);\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1530,
+        "y": 380,
+        "wires": [
+            [
+                "rbe_agent2_response"
+            ]
+        ]
+    },
+    {
+        "id": "rbe_agent2_response",
+        "type": "rbe",
+        "z": "bcd37c70fd470577",
+        "name": "Drop duplicate responses",
+        "func": "rbe",
+        "gap": "",
+        "start": "",
+        "inout": "out",
+        "property": "dedupe_key",
+        "x": 1770,
+        "y": 380,
+        "wires": [
+            [
+                "32a76c72281e0269"
             ]
         ]
     },
@@ -483,14 +520,19 @@
                 "vt": "str"
             },
             {
+                "t": "regex",
+                "v": "^(greeting|ask_for_help|ask_details|ask_create_ticket|ask_continue|answer_provided)$",
+                "vt": "str"
+            },
+            {
                 "t": "else"
             }
         ],
         "checkall": "false",
         "repair": false,
-        "outputs": 4,
-        "x": 1550,
-        "y": 360,
+        "outputs": 5,
+        "x": 2010,
+        "y": 380,
         "wires": [
             [
                 "8e173b1d0999e9d4"
@@ -500,6 +542,9 @@
             ],
             [
                 "dd4a93a5a2b8ab8f"
+            ],
+            [
+                "73e92787ec9354d9"
             ],
             [
                 "83f4199c57bd1019"
@@ -518,7 +563,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1850,
+        "x": 2310,
         "y": 260,
         "wires": [
             [
@@ -538,7 +583,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1850,
+        "x": 2310,
         "y": 320,
         "wires": [
             [
@@ -558,7 +603,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1830,
+        "x": 2290,
         "y": 380,
         "wires": [
             [
@@ -579,7 +624,7 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 2120,
+        "x": 2580,
         "y": 260,
         "wires": []
     },
@@ -596,7 +641,7 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 2120,
+        "x": 2580,
         "y": 320,
         "wires": []
     },
@@ -613,7 +658,7 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 2110,
+        "x": 2570,
         "y": 380,
         "wires": []
     },
@@ -630,8 +675,8 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 1770,
-        "y": 440,
+        "x": 2230,
+        "y": 500,
         "wires": []
     },
     {
@@ -647,7 +692,7 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 1550,
+        "x": 2270,
         "y": 440,
         "wires": []
     },

@@ -47,6 +47,9 @@ RAG_LIMIT = int(os.getenv("RAG_LIMIT", "3"))
 MAX_CONTEXT_CHARS = int(os.getenv("OLLAMA_MAX_CONTEXT_CHARS", "4000"))
 MAX_DOC_CHARS = int(os.getenv("OLLAMA_MAX_DOC_CHARS", "800"))
 FAST_RAG_ONLY = os.getenv("FAST_RAG_ONLY", "false").lower() in {"1", "true", "yes"}
+MIN_RAG_SCORE = float(os.getenv("MIN_RAG_SCORE", "0.35"))
+MIN_RAG_TOP_SCORE = float(os.getenv("MIN_RAG_TOP_SCORE", "0.45"))
+MIN_RAG_SCORE_RATIO = float(os.getenv("MIN_RAG_SCORE_RATIO", "0.70"))
 
 llm = ChatOllama(
     model=OLLAMA_MODEL,
@@ -120,7 +123,7 @@ def search_rag_database(query: str, limit: int = RAG_LIMIT) -> List[Dict]:
     processed_query = preprocess_query(query)
     print(f" Processed query: '{processed_query}'")
     
-    query_embedding = embeddings.embed_query(query)
+    query_embedding = embeddings.embed_query(processed_query)
     print(f" Generated embedding with {len(query_embedding)} dimensions")
     
     search_results = qdrant_client.query_points(
@@ -144,8 +147,20 @@ def search_rag_database(query: str, limit: int = RAG_LIMIT) -> List[Dict]:
         }
         results.append(doc)
         print(f" Document: {doc['category']} - score: {doc['score']:.3f}")
-    
-    return results
+
+    # Hard relevance filtering to avoid mismatched answers
+    if not results:
+        return results
+
+    top_score = max(r["score"] for r in results)
+    if top_score < MIN_RAG_TOP_SCORE:
+        print(f" Top score {top_score:.3f} below MIN_RAG_TOP_SCORE {MIN_RAG_TOP_SCORE:.3f} -> no results")
+        return []
+
+    min_allowed = max(MIN_RAG_SCORE, top_score * MIN_RAG_SCORE_RATIO)
+    filtered = [r for r in results if r["score"] >= min_allowed]
+    print(f" Relevance filter: top={top_score:.3f}, min_allowed={min_allowed:.3f}, kept={len(filtered)}/{len(results)}")
+    return filtered
 
 def assign_priority(ticket_text: str) -> Dict[str, str]:
     """Assign priority to ticket using LLM"""
