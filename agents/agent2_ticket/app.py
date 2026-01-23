@@ -464,7 +464,7 @@ ODPOWIEDŹ:"""
             }
     
     except Exception as e:
-        print(f"❌ Error in workflow: {e}")
+        print(f" Error in workflow: {e}")
         error_msg = behavior.get("error_response", "Przepraszam, wystąpił błąd.")
         return {
             "response": error_msg,
