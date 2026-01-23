@@ -1,8 +1,23 @@
 {
-    "name": "UniversitySupportAgent",
+    "name": "Agent WSB Merito",
+    "agent_name": "Adam",
     "behavior": {
-        "greeting": "Cześć! Jestem Twoim asystentem uczelnianym. Jak mogę Ci pomóc?",
-        "farewell": "Do zobaczenia! Powodzenia w nauce!",
-        "default_response": "Nie znalazłem odpowiedzi w materiałach. Chcesz podać dodatkowe szczegóły, abym mógł spróbować ponownie?"
+        "greeting": "Cześć! Jestem Twoim asystentem WSB - Adam.",
+        "ask_for_help": "Jak mogę Ci pomóc?",
+        "searching_message": "Przeszukuję bazę dokumentacji...",
+        "ask_for_details": "Nie znalazłem odpowiedzi w bazie dokumentów. Czy możesz podać więcej szczegółów lub przeformułować pytanie?",
+        "searching_with_details": "Przeszukuję ponownie z dodatkowymi informacjami...",
+        "ask_create_ticket": "Nie znalazłem odpowiedzi w dokumentacji. Czy chcesz, abym utworzył zgłoszenie do działu wsparcia?",
+        "classifying_ticket": "Klasyfikuję zgłoszenie i określam priorytet...",
+        "ticket_created": "Zgłoszenie zostało utworzone:\n- Numer zgłoszenia: {ticket_number}\n- Priorytet: {priority}\n- Szacowany czas rozwiązania: {estimated_time}\n- Status: {status}\n\nPowiadomienie zostało wysłane do Ciebie i działu wsparcia.",
+        "ask_continue": "Czy mogę pomóc w czymś jeszcze?",
+        "farewell": "Do zobaczenia! Powodzenia!",
+        "error_response": "Przepraszam, wystąpił błąd podczas przetwarzania Twojego zapytania. Spróbuj ponownie."
+    },
+    "ticket_estimated_times": {
+        "P1": "2-4 godziny",
+        "P2": "4-8 godzin",
+        "P3": "1-2 dni",
+        "P4": "3-5 dni"
     }
 }
