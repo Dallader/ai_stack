@@ -1,7 +1,5 @@
 import os
 import json
-import smtplib
-from email.message import EmailMessage
 from typing import Optional, Dict, List
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse, FileResponse
@@ -187,57 +185,6 @@ def assign_priority(ticket_text: str) -> Dict[str, str]:
     # Default to P3 if can't determine
     return {"priority": "P3", "priority_name": "Medium"}
 
-def assign_category(ticket_text: str) -> Dict[str, str]:
-    """Assign category to ticket using LLM with keyword fallback"""
-    categories = categories_data.get("categories", [])
-
-    def get_default_category() -> Dict[str, str]:
-        for c in categories:
-            if c.get("id") == "OTHER":
-                return {"category": c.get("id", "OTHER"), "category_name": c.get("name", "Inne")}
-        return {"category": "OTHER", "category_name": "Inne"}
-
-    if not categories:
-        return get_default_category()
-
-    categories_str = "\n".join([
-        f"- {c.get('id')}: {c.get('name')} – {c.get('description', '')}" for c in categories
-    ])
-
-    prompt_template = agent_behavior.get("llm_prompts", {}).get("category_classification", "")
-    if prompt_template:
-        prompt = prompt_template.format(categories_str=categories_str, ticket_text=ticket_text)
-        try:
-            response = llm.invoke(prompt)
-            content = response.content.strip().upper()
-            for c in categories:
-                if c.get("id", "").upper() in content:
-                    return {
-                        "category": c.get("id", "OTHER"),
-                        "category_name": c.get("name", "Inne")
-                    }
-        except Exception as e:
-            print(f"⚠️ Category LLM error: {e}")
-
-    # Keyword fallback
-    text = ticket_text.lower()
-    best_match = None
-    best_score = 0
-    for c in categories:
-        keywords = c.get("keywords", [])
-        score = sum(1 for k in keywords if k and k.lower() in text)
-        if score > best_score:
-            best_score = score
-            best_match = c
-
-    if best_match and best_score > 0:
-        return {
-            "category": best_match.get("id", "OTHER"),
-            "category_name": best_match.get("name", "Inne")
-        }
-
-    return get_default_category()
-
 def generate_ticket_number() -> str:
     """Generate unique ticket number"""
     import time
@@ -245,66 +192,6 @@ def generate_ticket_number() -> str:
     timestamp = int(time.time())
     random_num = random.randint(1000, 9999)
     return f"TICKET-{timestamp}-{random_num}"
-
-def send_ticket_email(ticket: Dict, to_email: str) -> Dict[str, str]:
-    """Send ticket notification email if SMTP is configured."""
-    smtp_host = os.getenv("SMTP_HOST", "").strip()
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER", "").strip()
-    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
-    smtp_from = os.getenv("SMTP_FROM", smtp_user or "no-reply@localhost")
-    smtp_tls = os.getenv("SMTP_TLS", "true").lower() in {"1", "true", "yes"}
-
-    result = {
-        "sent": False,
-        "to": to_email
-    }
-
-    if not smtp_host:
-        result["reason"] = "smtp_not_configured"
-        print("⚠️ SMTP not configured. Skipping email send.")
-        return result
-
-    subject = f"[WSB Merito] Nowe zgłoszenie {ticket.get('ticket_number', '')}"
-    body = (
-        "Nowe zgłoszenie zostało utworzone.\n\n"
-        f"Numer: {ticket.get('ticket_number', '')}\n"
-        f"Kategoria: {ticket.get('category_name', '')} ({ticket.get('category', '')})\n"
-        f"Priorytet: {ticket.get('priority', '')} ({ticket.get('priority_name', '')})\n"
-        f"Status: {ticket.get('status', '')}\n"
-        f"Szacowany czas: {ticket.get('estimated_time', '')}\n\n"
-        f"Treść zgłoszenia:\n{ticket.get('query', '')}\n\n"
-        f"Dodatkowe informacje:\n{ticket.get('additional_info') or 'brak'}\n"
-    )
-
-    msg = EmailMessage()
-    msg["From"] = smtp_from
-    msg["To"] = to_email
-    msg["Subject"] = subject
-    msg.set_content(body)
-
-    try:
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
-            server.ehlo()
-            if smtp_tls:
-                server.starttls()
-                server.ehlo()
-            if smtp_user and smtp_password:
-                server.login(smtp_user, smtp_password)
-            server.send_message(msg)
-        result["sent"] = True
-        print(f"📧 Ticket notification email sent to {to_email}")
-    except Exception as e:
-        result["reason"] = str(e)
-        print(f"⚠️ Email send failed: {e}")
-
-    return result
-
-def build_email_status_line(email_info: Dict[str, str], fallback_email: str) -> str:
-    if email_info.get("sent"):
-        return f"📧 Wysłano zgłoszenie do: {email_info.get('to', fallback_email)}."
-    reason = email_info.get("reason", "nieznany błąd")
-    return f"⚠️ Nie udało się wysłać e-maila do {email_info.get('to', fallback_email)} ({reason})."
 
 def get_estimated_time(priority: str) -> str:
     """Get estimated resolution time based on priority"""
@@ -319,9 +206,7 @@ def create_ticket(query: str, additional_info: Optional[str] = None) -> Dict:
     if additional_info:
         full_text += f"\nDodatkowe informacje: {additional_info}"
     
-    # Step 10.1: Classify category
-    category_classification = assign_category(full_text)
-
+    # Step 10.1: Analyze query with LLM
     # Step 10.2: Assign priority
     classification = assign_priority(full_text)
     
@@ -335,8 +220,6 @@ def create_ticket(query: str, additional_info: Optional[str] = None) -> Dict:
         "ticket_number": ticket_number,
         "query": query,
         "additional_info": additional_info,
-        "category": category_classification["category"],
-        "category_name": category_classification["category_name"],
         "priority": classification["priority"],
         "priority_name": classification["priority_name"],
         "status": "created",
@@ -356,8 +239,6 @@ def create_ticket(query: str, additional_info: Optional[str] = None) -> Dict:
                 "ticket_number": ticket_number,
                 "query": query,
                 "additional_info": additional_info,
-                "category": category_classification["category"],
-                "category_name": category_classification["category_name"],
                 "priority": classification["priority"],
                 "priority_name": classification["priority_name"],
                 "status": "created",
@@ -368,11 +249,8 @@ def create_ticket(query: str, additional_info: Optional[str] = None) -> Dict:
     )
     print(f"✓ Ticket {ticket_number} stored in Qdrant")
     
-    # Step 10.6: Send notifications to BOS (best-effort)
-    bos_email = os.getenv("BOS_EMAIL", "bos@merito.pl")
-    email_info = send_ticket_email(ticket, bos_email)
-    ticket["notification"] = email_info
-    print(f"📧 Notification result for ticket {ticket_number}: {email_info}")
+    # Step 10.6: Send notifications (logged for now)
+    print(f"📧 Notifications sent for ticket {ticket_number}")
     
     return ticket
 
@@ -390,14 +268,6 @@ def fast_answer_from_rag(rag_results: List[Dict]) -> str:
     """Return a quick response without calling the LLM."""
     top = rag_results[0]
     snippet = top["text"].strip()
-    
-    # Debug logging
-    print(f"🔍 DEBUG fast_answer_from_rag:")
-    print(f"   - Top result text length: {len(snippet)}")
-    print(f"   - Top result text preview: {snippet[:200] if snippet else '[EMPTY]'}")
-    print(f"   - Top result category: {top.get('category', 'N/A')}")
-    print(f"   - Top result score: {top.get('score', 'N/A')}")
-    
     if len(snippet) > 600:
         snippet = snippet[:600] + "..."
     return (
@@ -446,84 +316,264 @@ async def get_host_settings():
     }
 
 @app.post("/run")
-async def run_agent(request: dict):
-    """Main endpoint for agent operations"""
-    try:
-        step = request.get("step", "")
-        user_input = request.get("input", "")
+async def run(payload: dict):
+    """Main endpoint following workflow steps from rules_and_workflow.json"""
+    # Get step first to determine if input is required
+    step = payload.get("step", "receive_query")
+    
+    # Steps that don't require an input query
+    steps_without_input = ["greeting", "ask_for_help", "ask_details", "ask_create_ticket", 
+                          "ask_continue", "farewell", "classify_and_create_ticket"]
+    
+    # Get query - allow None or empty string for steps that don't need it
+    query = payload.get("input", "")
+    original_query = payload.get("original_query", query)
+    
+    behavior = agent_behavior.get("behavior", {})
+    
+    # Debug logging
+    print(f"📥 Received payload: {payload}")
+    print(f"📥 Received: step='{step}' (type: {type(step)}), input='{query}', input_required={step not in steps_without_input}")
+    
+    # Validate input only for steps that require it
+    if step not in steps_without_input and not query:
+        raise HTTPException(status_code=400, detail=f"Input query is required for step '{step}'")
+    
+    # STEP 1: Greeting
+    if step == "greeting":
+        print("👋 Step 1: Greeting")
+        greeting = behavior.get("greeting", "Witaj! Jestem Adam, asystentem WSB Merito.")
+        return {
+            "response": greeting,
+            "step": "greeting",
+            "next_step": "ask_for_help"
+        }
+    
+    # STEP 2: Ask for help
+    elif step == "ask_for_help":
+        print("❓ Step 2: Ask for help")
+        ask_help = behavior.get("ask_for_help", "W czym mogę Ci pomóc?")
+        return {
+            "response": ask_help,
+            "step": "ask_for_help",
+            "next_step": "receive_query"
+        }
+    
+    # STEP 11: Ask if can continue helping
+    elif step == "ask_continue":
+        print("🔄 Step 11: Ask to continue")
+        continue_conversation = payload.get("continue", False)
         
-        if step == "greeting":
+        if continue_conversation:
+            ask_help = behavior.get("ask_for_help", "W czym mogę Ci pomóc?")
             return {
-                "response": agent_behavior.get("responses", {}).get("greeting", "Dzień dobry! Jestem Twoim asystentem."),
-                "step": "greeting"
+                "response": ask_help,
+                "step": "ask_for_help",
+                "next_step": "receive_query"
             }
-        
-        elif step == "ask_for_help":
+        else:
+            farewell = behavior.get("farewell", "Do zobaczenia!")
             return {
-                "response": agent_behavior.get("responses", {}).get("ask_for_help", "W czym mogę Ci pomóc?"),
-                "step": "ask_for_help"
+                "response": farewell,
+                "step": "completed",
+                "end": True
             }
+    
+    # STEP 9: Ask to create ticket (separate handler)
+    elif step == "ask_create_ticket":
+        print("🎫 Step 9: Ask to create ticket")
+        create_ticket_request = payload.get("create_ticket", False)
         
-        elif step == "receive_query":
-            rag_results = search_rag_database(user_input)
+        if create_ticket_request:
+            # Move to ticket creation
+            print("→ Step 10: User confirmed, creating ticket")
+            print(behavior.get("classifying_ticket", "Klasyfikuję zgłoszenie..."))
             
-            if not rag_results:
-                return {
-                    "response": agent_behavior.get("responses", {}).get("no_results", "Nie znalazłem informacji. Czy możesz podać więcej szczegółów?"),
-                    "step": "ask_details",
-                    "documents_found": 0,
-                    "original_query": user_input
-                }
+            additional_info = payload.get("additional_info")
+            input_query = payload.get("input", "")
+            ticket = create_ticket(input_query or original_query, additional_info)
             
-            # ... rest of receive_query logic
-        
-        elif step == "ask_details":
+            # Format response using ticket_created template
+            ticket_msg = behavior.get("ticket_created", "Zgłoszenie utworzone")
+            response_text = ticket_msg.format(
+                ticket_number=ticket["ticket_number"],
+                priority=f"{ticket['priority']} ({ticket['priority_name']})",
+                estimated_time=ticket["estimated_time"],
+                status=ticket["status"]
+            )
+            
+            # Ask if can help with something else
+            ask_continue = behavior.get("ask_continue", "Czy mogę pomóc w czymś jeszcze?")
+            
             return {
-                "response": agent_behavior.get("responses", {}).get("ask_details", "Czy możesz podać więcej szczegółów dotyczących Twojego zapytania?"),
-                "step": "ask_details",
-                "original_query": request.get("original_query", "")
+                "response": f"{response_text}\n\n{ask_continue}",
+                "ticket": ticket,
+                "step": "ticket_created",
+                "next_step": "ask_continue",
+                "documents_found": 0,
+                "collection": COLLECTION
             }
+        else:
+            ask_continue = behavior.get("ask_continue", "Czy mogę pomóc w czymś jeszcze?")
+            return {
+                "response": ask_continue,
+                "step": "ask_continue",
+                "next_step": "receive_query"
+            }
+    
+    # STEP 10: Classify and create ticket (alternative path)
+    elif step == "classify_and_create_ticket":
+        print("→ Step 10: Classifying and creating ticket")
+        print(behavior.get("classifying_ticket", "Klasyfikuję zgłoszenie..."))
         
-        elif step == "receive_details":
-            original_query = request.get("original_query", "")
-            combined_query = f"{original_query} {user_input}"
-            rag_results = search_rag_database(combined_query)
-            
-            if not rag_results:
-                return {
-                    "response": agent_behavior.get("responses", {}).get("still_no_results", "Niestety nadal nie mogę znaleźć odpowiedzi. Czy chcesz utworzyć zgłoszenie do BOS?"),
-                    "step": "ask_create_ticket",
-                    "documents_found": 0,
-                    "original_query": original_query,
-                    "additional_info": user_input
-                }
-            
-            # ... rest of receive_details logic
+        additional_info = payload.get("additional_info")
+        input_query = payload.get("input", "")
+        ticket = create_ticket(input_query or original_query, additional_info)
         
-        elif step == "search_with_details":
-            # Similar to receive_details
-            original_query = request.get("original_query", "")
-            combined_query = f"{original_query} {user_input}"
-            rag_results = search_rag_database(combined_query)
+        # Format response using ticket_created template
+        ticket_msg = behavior.get("ticket_created", "Zgłoszenie utworzone")
+        response_text = ticket_msg.format(
+            ticket_number=ticket["ticket_number"],
+            priority=f"{ticket['priority']} ({ticket['priority_name']})",
+            estimated_time=ticket["estimated_time"],
+            status=ticket["status"]
+        )
+        
+        # Ask if can help with something else
+        ask_continue = behavior.get("ask_continue", "Czy mogę pomóc w czymś jeszcze?")
+        
+        return {
+            "response": f"{response_text}\n\n{ask_continue}",
+            "ticket": ticket,
+            "step": "ticket_created",
+            "next_step": "ask_continue",
+            "documents_found": 0,
+            "collection": COLLECTION
+        }
+    
+    # STEP 3: Receive query (already received in payload)
+    # STEP 4: Search Qdrant database
+    elif step in ["receive_query", "search_qdrant"]:
+        print(f"🔎 Step 4: Searching Qdrant for: '{query}'")
+        print(behavior.get("searching_message", "Searching..."))
+        
+        rag_results = search_rag_database(query, limit=RAG_LIMIT)
+        
+        # STEP 5: Generate answer with Ollama if documents found
+        if rag_results:
+            context = build_context(rag_results)
+            
+            print(f"✓ Step 5: Generating answer with {len(rag_results)} documents")
+            
+            # Get prompt template from JSON
+            prompt_template = agent_behavior.get("llm_prompts", {}).get("generate_answer", "")
+            prompt = prompt_template.format(context=context, query=query)
+            
+            if FAST_RAG_ONLY:
+                response_text = fast_answer_from_rag(rag_results)
+            else:
+                try:
+                    response = llm.invoke(prompt)
+                    response_text = response.content
+                except Exception as e:
+                    print(f"⚠️ LLM timeout/error: {e}")
+                    response_text = fast_answer_from_rag(rag_results)
+            
+            # STEP 11: Ask if can help with something else
+            ask_continue = behavior.get("ask_continue", "Czy mogę pomóc w czymś jeszcze?")
             
             return {
-                "response": "Przetwarzam zapytanie z dodatkowymi szczegółami...",
+                "response": f"{response_text}\n\n{ask_continue}",
                 "rag_results": rag_results,
                 "documents_found": len(rag_results),
-                "step": "search_with_details"
+                "step": "answer_provided",
+                "next_step": "ask_continue",
+                "collection": COLLECTION
             }
         
-        # ... rest of your existing steps (farewell, ask_continue, etc.)
-        
+        # STEP 6: No results - ask for more details
         else:
-            raise HTTPException(status_code=400, detail=f"Unknown step: {step}")
+            print("→ Step 6: No results, asking for details")
+            ask_details = behavior.get("ask_for_details", "Czy możesz podać więcej szczegółów?")
             
-    except Exception as e:
-        print(f"❌ Error in /run: {str(e)}")
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e), "step": request.get("step", "unknown")}
-        )
+            return {
+                "response": ask_details,
+                "step": "ask_details",
+                "next_step": "receive_details",
+                "original_query": query,
+                "documents_found": 0,
+                "collection": COLLECTION
+            }
+    
+    # STEP 7: Receive additional details
+    # STEP 8: Search with combined details
+    elif step in ["receive_details", "search_with_details"]:
+        combined_query = f"{original_query} {query}"
+        print(f"🔎 Step 8: Searching with details: '{combined_query}'")
+        print(behavior.get("searching_with_details", "Searching with additional info..."))
+        
+        rag_results = search_rag_database(combined_query, limit=RAG_LIMIT)
+        
+        # STEP 5: Generate answer if found
+        if rag_results:
+            context = build_context(rag_results)
+            
+            print(f"✓ Step 5: Generating answer with {len(rag_results)} documents")
+            
+            # Get prompt template from JSON
+            prompt_template = agent_behavior.get("llm_prompts", {}).get("generate_answer_with_details", "")
+            prompt = prompt_template.format(context=context, original_query=original_query, query=query)
+            
+            if FAST_RAG_ONLY:
+                response_text = fast_answer_from_rag(rag_results)
+            else:
+                try:
+                    response = llm.invoke(prompt)
+                    response_text = response.content
+                except Exception as e:
+                    print(f"⚠️ LLM timeout/error: {e}")
+                    response_text = fast_answer_from_rag(rag_results)
+            ask_continue = behavior.get("ask_continue", "Czy mogę pomóc w czymś jeszcze?")
+            
+            return {
+                "response": f"{response_text}\n\n{ask_continue}",
+                "rag_results": rag_results,
+                "documents_found": len(rag_results),
+                "step": "answer_provided",
+                "next_step": "ask_continue",
+                "collection": COLLECTION
+            }
+        
+        # STEP 9: Still no results - ask if create ticket
+        else:
+            print("→ Step 9: Still no results, asking to create ticket")
+            ask_create = behavior.get("ask_create_ticket", "Czy chcesz utworzyć zgłoszenie?")
+            
+            return {
+                "response": ask_create,
+                "step": "ask_create_ticket",
+                "next_step": "create_ticket",
+                "original_query": original_query,
+                "additional_info": query,
+                "documents_found": 0,
+                "collection": COLLECTION
+            }
+    
+    # STEP 12: Farewell
+    elif step == "farewell":
+        farewell = behavior.get("farewell", "Do zobaczenia!")
+        return {
+            "response": farewell,
+            "step": "completed",
+            "end": True
+        }
+    
+    else:
+        return {
+            "error": f"Unknown step: {step}",
+            "documents_found": 0,
+            "collection": COLLECTION
+        }
 
 @app.post("/upload")
 async def upload_file(
