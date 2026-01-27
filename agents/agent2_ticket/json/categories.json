@@ -1,4 +1,174 @@
 {
+    "categories": [
+        {
+            "id": "IT_ACCESS",
+            "name": "Dostępy i uprawnienia",
+            "description": "Problemy z logowaniem, brak dostępu do systemów, reset hasła, MFA.",
+            "keywords": [
+                "hasło",
+                "logowanie",
+                "konto",
+                "uprawnienia",
+                "dostęp",
+                "mfa",
+                "2fa",
+                "token",
+                "blokada",
+                "reset"
+            ],
+            "required_fields": [
+                "system",
+                "użytkownik"
+            ]
+        },
+        {
+            "id": "IT_SOFTWARE",
+            "name": "Aplikacje i oprogramowanie",
+            "description": "Błędy w aplikacjach, instalacje, aktualizacje, licencje.",
+            "keywords": [
+                "aplikacja",
+                "program",
+                "instalacja",
+                "aktualizacja",
+                "licencja",
+                "crash",
+                "błąd",
+                "nie działa"
+            ],
+            "required_fields": [
+                "nazwa_aplikacji"
+            ]
+        },
+        {
+            "id": "IT_HARDWARE",
+            "name": "Sprzęt",
+            "description": "Problemy ze sprzętem: laptop, drukarka, monitor, telefon.",
+            "keywords": [
+                "laptop",
+                "komputer",
+                "drukarka",
+                "monitor",
+                "klawiatura",
+                "mysz",
+                "telefon",
+                "sprzęt"
+            ],
+            "required_fields": [
+                "urządzenie",
+                "lokalizacja"
+            ]
+        },
+        {
+            "id": "NETWORK",
+            "name": "Sieć i Internet",
+            "description": "Brak sieci, wolne łącze, VPN, Wi-Fi.",
+            "keywords": [
+                "internet",
+                "sieć",
+                "vpn",
+                "wifi",
+                "wi-fi",
+                "łącze",
+                "brak połączenia",
+                "router"
+            ],
+            "required_fields": [
+                "lokalizacja"
+            ]
+        },
+        {
+            "id": "EMAIL",
+            "name": "Poczta i komunikacja",
+            "description": "Problemy z e-mail, Teams, Outlook.",
+            "keywords": [
+                "email",
+                "poczta",
+                "outlook",
+                "teams",
+                "wiadomość",
+                "załącznik",
+                "skrzynka"
+            ],
+            "required_fields": [
+                "konto"
+            ]
+        },
+        {
+            "id": "LMS",
+            "name": "Platformy dydaktyczne",
+            "description": "Problemy z Moodle/Canvas, zapisy na kurs, materiały.",
+            "keywords": [
+                "moodle",
+                "canvas",
+                "lms",
+                "kurs",
+                "zajęcia",
+                "oceny",
+                "materiały"
+            ],
+            "required_fields": [
+                "platforma",
+                "kurs"
+            ]
+        },
+        {
+            "id": "FINANCE",
+            "name": "Płatności i faktury",
+            "description": "Opłaty, faktury, błędy płatności.",
+            "keywords": [
+                "płatność",
+                "faktura",
+                "opłata",
+                "przelew",
+                "saldo",
+                "rozliczenie"
+            ],
+            "required_fields": [
+                "nr_indeksu"
+            ]
+        },
+        {
+            "id": "HR",
+            "name": "Sprawy kadrowe",
+            "description": "Zaświadczenia, umowy, sprawy pracownicze.",
+            "keywords": [
+                "umowa",
+                "zaświadczenie",
+                "kadry",
+                "urlop",
+                "pracownik",
+                "zatrudnienie"
+            ],
+            "required_fields": [
+                "osoba",
+                "dział"
+            ]
+        },
+        {
+            "id": "FACILITY",
+            "name": "Infrastruktura i administracja",
+            "description": "Usterki budynku, sale, dostęp do pomieszczeń.",
+            "keywords": [
+                "sala",
+                "budynek",
+                "klucz",
+                "klimatyzacja",
+                "światło",
+                "usterka",
+                "administracja"
+            ],
+            "required_fields": [
+                "lokalizacja"
+            ]
+        },
+        {
+            "id": "OTHER",
+            "name": "Inne",
+            "description": "Inne tematy, które nie pasują do powyższych kategorii.",
+            "keywords": [],
+            "required_fields": []
+        }
+    ],
     "priorities": [
         {
             "level": "P1",

@@ -1,15 +1,15 @@
 [
     {
-        "id": "bcd37c70fd470577",
+        "id": "e56d216f59a3382d",
         "type": "tab",
         "label": "Agent2 - Enhanced RAG Test",
         "disabled": false,
         "info": "Testy ulepszonego systemu RAG z przeszukiwaniem Qdrant"
     },
     {
-        "id": "step1_greeting",
+        "id": "3ef8460c1a6b97d2",
         "type": "inject",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Krok 1: Greeting (Powitanie)",
         "props": [
             {
@@ -27,14 +27,14 @@
         "y": 580,
         "wires": [
             [
-                "c380192ce02f89b2"
+                "f25ad4f545ecb96b"
             ]
         ]
     },
     {
-        "id": "step2_ask_help",
+        "id": "96632a2c62ab63c6",
         "type": "inject",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Krok 2: Ask for Help (Jak mogę pomóc)",
         "props": [
             {
@@ -52,14 +52,14 @@
         "y": 640,
         "wires": [
             [
-                "c380192ce02f89b2"
+                "f25ad4f545ecb96b"
             ]
         ]
     },
     {
-        "id": "step3_query1",
+        "id": "b18c8cc2f8fefacd",
         "type": "inject",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Krok 3: Query - Prawa i obowiązki",
         "props": [
             {
@@ -77,15 +77,15 @@
         "y": 700,
         "wires": [
             [
-                "c380192ce02f89b2"
+                "f25ad4f545ecb96b"
             ]
         ]
     },
     {
-        "id": "step3_query2",
+        "id": "1ba62879da94568c",
         "type": "inject",
-        "z": "bcd37c70fd470577",
-        "name": "Krok 3: Query - Formy płatności",
+        "z": "e56d216f59a3382d",
+        "name": "Krok 4: Query - Formy płatności",
         "props": [
             {
                 "p": "payload"
@@ -102,15 +102,15 @@
         "y": 760,
         "wires": [
             [
-                "c380192ce02f89b2"
+                "f25ad4f545ecb96b"
             ]
         ]
     },
     {
-        "id": "step3_query3",
+        "id": "bf2faad742845200",
         "type": "inject",
-        "z": "bcd37c70fd470577",
-        "name": "Krok 3: Query - Reklamacja oceny",
+        "z": "e56d216f59a3382d",
+        "name": "Krok 5: Query - Reklamacja oceny",
         "props": [
             {
                 "p": "payload"
@@ -127,15 +127,15 @@
         "y": 820,
         "wires": [
             [
-                "c380192ce02f89b2"
+                "f25ad4f545ecb96b"
             ]
         ]
     },
     {
-        "id": "step7_details",
+        "id": "e3435c4180a5ad6b",
         "type": "inject",
-        "z": "bcd37c70fd470577",
-        "name": "Krok 7: Receive Details - Więcej info",
+        "z": "e56d216f59a3382d",
+        "name": "Krok 6: Receive Details - Więcej info",
         "props": [
             {
                 "p": "payload"
@@ -152,15 +152,15 @@
         "y": 880,
         "wires": [
             [
-                "c380192ce02f89b2"
+                "f25ad4f545ecb96b"
             ]
         ]
     },
     {
-        "id": "step9_create_ticket",
+        "id": "3ea7a19fe71518eb",
         "type": "inject",
-        "z": "bcd37c70fd470577",
-        "name": "Krok 9-10: Create Ticket - Dane osobowe BOSU",
+        "z": "e56d216f59a3382d",
+        "name": "Krok 9: Ask Create Ticket - BOS",
         "props": [
             {
                 "p": "payload"
@@ -171,20 +171,45 @@
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "{\"input\":\"Chcę sprawdzić jakie moje dane osobowe są w systemie i zgłosić do BOSU zmianę mojego adresu zamieszkania\",\"step\":\"ask_create_ticket\",\"create_ticket\":true}",
+        "payload": "{\"input\":\"Chcę sprawdzić jakie moje dane osobowe są w systemie i zgłosić do BOSU zmianę mojego adresu zamieszkania\",\"step\":\"ask_create_ticket\"}",
         "payloadType": "json",
-        "x": 240,
+        "x": 190,
         "y": 940,
         "wires": [
             [
-                "c380192ce02f89b2"
+                "f25ad4f545ecb96b"
             ]
         ]
     },
     {
-        "id": "step11_continue_yes",
+        "id": "f542b67b4bfbae21",
         "type": "inject",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
+        "name": "Krok 10: Confirm YES - Create Ticket",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"input\":\"Tak, proszę utworzyć zgłoszenie do BOS\",\"step\":\"classify_and_create_ticket\",\"original_query\":\"Chcę zmienić adres zamieszkania w systemie\",\"additional_info\":\"Chcę sprawdzić jakie moje dane osobowe są w systemie i zgłosić do BOSU zmianę mojego adresu zamieszkania\"}",
+        "payloadType": "json",
+        "x": 210,
+        "y": 1000,
+        "wires": [
+            [
+                "f25ad4f545ecb96b"
+            ]
+        ]
+    },
+    {
+        "id": "6db15b8af9831bab",
+        "type": "inject",
+        "z": "e56d216f59a3382d",
         "name": "Krok 11: Continue - TAK (kolejne pytanie)",
         "props": [
             {
@@ -199,17 +224,17 @@
         "payload": "{\"input\":\"\",\"step\":\"ask_continue\",\"continue\":true}",
         "payloadType": "json",
         "x": 220,
-        "y": 1000,
+        "y": 1060,
         "wires": [
             [
-                "c380192ce02f89b2"
+                "f25ad4f545ecb96b"
             ]
         ]
     },
     {
-        "id": "step12_farewell",
+        "id": "8ff7f88e36a3aaba",
         "type": "inject",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Krok 12: Farewell (Pożegnanie)",
         "props": [
             {
@@ -224,17 +249,17 @@
         "payload": "{\"input\":\"\",\"step\":\"farewell\"}",
         "payloadType": "json",
         "x": 190,
-        "y": 1060,
+        "y": 1120,
         "wires": [
             [
-                "c380192ce02f89b2"
+                "f25ad4f545ecb96b"
             ]
         ]
     },
     {
-        "id": "bfd5b8b982ac2442",
+        "id": "19f005767a2cd5ac",
         "type": "inject",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Health Check",
         "props": [
             {
@@ -252,14 +277,14 @@
         "y": 60,
         "wires": [
             [
-                "1a180e3eb908dbc6"
+                "8fce12fca776c9e4"
             ]
         ]
     },
     {
-        "id": "4c26b4df546205ac",
+        "id": "c104b14bb0ae9a2d",
         "type": "inject",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Stats - Statystyki kolekcji",
         "props": [
             {
@@ -277,14 +302,14 @@
         "y": 120,
         "wires": [
             [
-                "87c0c67956953d1a"
+                "b84ea6ae7a232761"
             ]
         ]
     },
     {
-        "id": "931ef153754c4bc3",
+        "id": "d9313615e2ef576f",
         "type": "inject",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "REINDEX - Załaduj ponownie dokumenty",
         "props": [
             {
@@ -302,14 +327,14 @@
         "y": 180,
         "wires": [
             [
-                "d1722fe5a1fa4198"
+                "89cdcd474b528ea3"
             ]
         ]
     },
     {
-        "id": "38c6377fe53ce66e",
+        "id": "f9868b740651ac0d",
         "type": "inject",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Lista dokumentów w Qdrant",
         "props": [
             {
@@ -327,14 +352,34 @@
         "y": 240,
         "wires": [
             [
-                "289fab2bb84f372a"
+                "dbb78864a16885f0"
             ]
         ]
     },
     {
-        "id": "c380192ce02f89b2",
+        "id": "f25ad4f545ecb96b",
+        "type": "function",
+        "z": "e56d216f59a3382d",
+        "name": "Preserve input",
+        "func": "const payload = msg.payload || {};\nmsg.request_input = payload.input;\nmsg.request_step = payload.step;\nmsg.request_original_query = payload.original_query;\n\nif (payload.student) {\n    flow.set(\"student\", payload.student);\n}\nif (payload.conversation_summary) {\n    flow.set(\"conversation_summary\", payload.conversation_summary);\n}\nif (payload.conversation_notes) {\n    flow.set(\"conversation_notes\", payload.conversation_notes);\n}\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1130,
+        "y": 380,
+        "wires": [
+            [
+                "b9306728a53473e8"
+            ]
+        ]
+    },
+    {
+        "id": "b9306728a53473e8",
         "type": "http request",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "POST /run",
         "method": "POST",
         "ret": "obj",
@@ -358,16 +403,16 @@
         "y": 380,
         "wires": [
             [
-                "dedupe_key_agent2"
+                "26a9372b0bc37d23"
             ]
         ]
     },
     {
-        "id": "dedupe_key_agent2",
+        "id": "26a9372b0bc37d23",
         "type": "function",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Build dedupe key",
-        "func": "const payload = msg.payload || {};\nconst keyPayload = {\n    response: payload.response || '',\n    step: payload.step || '',\n    next_step: payload.next_step || '',\n    documents_found: payload.documents_found || 0,\n    original_query: payload.original_query || '',\n    input: payload.input || ''\n};\nmsg.dedupe_key = JSON.stringify(keyPayload);\nreturn msg;",
+        "func": "const payload = msg.payload || {};\nconst input = payload.input || msg.request_input || '';\nconst originalQuery = payload.original_query || msg.request_original_query || '';\nconst keyPayload = {\n    response: payload.response || '',\n    step: payload.step || '',\n    next_step: payload.next_step || '',\n    documents_found: payload.documents_found || 0,\n    original_query: originalQuery,\n    input\n};\nmsg.dedupe_key = JSON.stringify(keyPayload);\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -378,14 +423,14 @@
         "y": 380,
         "wires": [
             [
-                "rbe_agent2_response"
+                "9627c973c7405952"
             ]
         ]
     },
     {
-        "id": "rbe_agent2_response",
+        "id": "9627c973c7405952",
         "type": "rbe",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Drop duplicate responses",
         "func": "rbe",
         "gap": "",
@@ -396,14 +441,14 @@
         "y": 380,
         "wires": [
             [
-                "32a76c72281e0269"
+                "072193016f31b448"
             ]
         ]
     },
     {
-        "id": "1a180e3eb908dbc6",
+        "id": "8fce12fca776c9e4",
         "type": "http request",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "GET /health",
         "method": "GET",
         "ret": "obj",
@@ -420,14 +465,14 @@
         "y": 60,
         "wires": [
             [
-                "2969d110b991a75a"
+                "e640f453899d485a"
             ]
         ]
     },
     {
-        "id": "87c0c67956953d1a",
+        "id": "b84ea6ae7a232761",
         "type": "http request",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "GET /stats",
         "method": "GET",
         "ret": "obj",
@@ -444,14 +489,14 @@
         "y": 120,
         "wires": [
             [
-                "59e3e2247f89b656"
+                "0360b909c5703a11"
             ]
         ]
     },
     {
-        "id": "d1722fe5a1fa4198",
+        "id": "89cdcd474b528ea3",
         "type": "http request",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "POST /reindex",
         "method": "POST",
         "ret": "obj",
@@ -468,14 +513,14 @@
         "y": 180,
         "wires": [
             [
-                "04c658b32a45d64c"
+                "7cf87963d779f3a9"
             ]
         ]
     },
     {
-        "id": "289fab2bb84f372a",
+        "id": "dbb78864a16885f0",
         "type": "http request",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "GET /documents",
         "method": "GET",
         "ret": "obj",
@@ -492,14 +537,14 @@
         "y": 240,
         "wires": [
             [
-                "6c5ecce85eb34337"
+                "4c4a5b4217fa204c"
             ]
         ]
     },
     {
-        "id": "32a76c72281e0269",
+        "id": "072193016f31b448",
         "type": "switch",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Analiza odpowiedzi",
         "property": "payload.step",
         "propertyType": "msg",
@@ -511,7 +556,7 @@
             },
             {
                 "t": "eq",
-                "v": "need_details",
+                "v": "ask_details",
                 "vt": "str"
             },
             {
@@ -535,26 +580,26 @@
         "y": 380,
         "wires": [
             [
-                "8e173b1d0999e9d4"
+                "207afe37fa9772fe"
             ],
             [
-                "86b83bdfdf377c76"
+                "48d1e669dea8ce27"
             ],
             [
-                "dd4a93a5a2b8ab8f"
+                "d6a814f76350aba1"
             ],
             [
-                "73e92787ec9354d9"
+                "dfb8fe60d7dd05bb"
             ],
             [
-                "83f4199c57bd1019"
+                "8b5eb73d130e5203"
             ]
         ]
     },
     {
-        "id": "8e173b1d0999e9d4",
+        "id": "207afe37fa9772fe",
         "type": "function",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Format: Odpowiedź znaleziona",
         "func": "const data = msg.payload;\n\nmsg.payload = {\n    status: \"✅ SUKCES - Znaleziono odpowiedź\",\n    response: data.response,\n    documents_found: data.documents_found || 0,\n    rag_results: data.rag_results || [],\n    collection: data.collection,\n    step: data.step\n};\n\nreturn msg;",
         "outputs": 1,
@@ -567,14 +612,14 @@
         "y": 260,
         "wires": [
             [
-                "7abd3d35aebe2b17"
+                "d2c41bce8dbe4238"
             ]
         ]
     },
     {
-        "id": "86b83bdfdf377c76",
+        "id": "48d1e669dea8ce27",
         "type": "function",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Format: Potrzeba szczegółów",
         "func": "const data = msg.payload;\n\nmsg.payload = {\n    status: \"⚠️ BRAK WYNIKÓW - Proszę o więcej szczegółów\",\n    response: data.response,\n    original_query: data.original_query,\n    documents_found: data.documents_found || 0,\n    collection: data.collection,\n    step: data.step,\n    next_action: \"Użyj Test 4 z original_query z tej odpowiedzi\"\n};\n\nreturn msg;",
         "outputs": 1,
@@ -587,16 +632,16 @@
         "y": 320,
         "wires": [
             [
-                "c7de2b9fe531f113"
+                "ca17d503baea13a9"
             ]
         ]
     },
     {
-        "id": "dd4a93a5a2b8ab8f",
+        "id": "d6a814f76350aba1",
         "type": "function",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Format: Ticket utworzony",
-        "func": "const data = msg.payload;\n\nmsg.payload = {\n    status: \"🎫 TICKET UTWORZONY\",\n    response: data.response,\n    ticket: data.ticket || {},\n    documents_found: data.documents_found || 0,\n    collection: data.collection,\n    step: data.step\n};\n\nreturn msg;",
+        "func": "const data = msg.payload;\nconst ticket = data.ticket || {};\nconst student = flow.get(\"student\") || {};\nconst conversationSummary = flow.get(\"conversation_summary\") || \"\";\nconst conversationNotes = flow.get(\"conversation_notes\") || \"\";\n\nmsg.payload = {\n    status: \"🎫 TICKET UTWORZONY\",\n    response: data.response,\n    ticket,\n    ticket_summary: {\n        ticket_number: ticket.ticket_number,\n        category: ticket.category,\n        category_name: ticket.category_name,\n        priority: ticket.priority,\n        priority_name: ticket.priority_name,\n        status: ticket.status,\n        estimated_time: ticket.estimated_time\n    },\n    student,\n    conversation_summary: conversationSummary,\n    conversation_notes: conversationNotes,\n    documents_found: data.documents_found || 0,\n    collection: data.collection,\n    step: data.step\n};\n\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -607,14 +652,14 @@
         "y": 380,
         "wires": [
             [
-                "e0385c7f6985e868"
+                "5e37fe06f0d72708"
             ]
         ]
     },
     {
-        "id": "7abd3d35aebe2b17",
+        "id": "d2c41bce8dbe4238",
         "type": "debug",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Odpowiedź znaleziona",
         "active": true,
         "tosidebar": true,
@@ -629,9 +674,9 @@
         "wires": []
     },
     {
-        "id": "c7de2b9fe531f113",
+        "id": "ca17d503baea13a9",
         "type": "debug",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Potrzeba szczegółów",
         "active": true,
         "tosidebar": true,
@@ -646,9 +691,9 @@
         "wires": []
     },
     {
-        "id": "e0385c7f6985e868",
+        "id": "5e37fe06f0d72708",
         "type": "debug",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Ticket utworzony",
         "active": true,
         "tosidebar": true,
@@ -663,9 +708,9 @@
         "wires": []
     },
     {
-        "id": "83f4199c57bd1019",
+        "id": "8b5eb73d130e5203",
         "type": "debug",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Błąd",
         "active": true,
         "tosidebar": true,
@@ -680,9 +725,9 @@
         "wires": []
     },
     {
-        "id": "73e92787ec9354d9",
+        "id": "dfb8fe60d7dd05bb",
         "type": "debug",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Pełna odpowiedź",
         "active": true,
         "tosidebar": true,
@@ -697,9 +742,9 @@
         "wires": []
     },
     {
-        "id": "2969d110b991a75a",
+        "id": "e640f453899d485a",
         "type": "debug",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Health",
         "active": true,
         "tosidebar": true,
@@ -714,9 +759,9 @@
         "wires": []
     },
     {
-        "id": "59e3e2247f89b656",
+        "id": "0360b909c5703a11",
         "type": "debug",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Statystyki",
         "active": true,
         "tosidebar": true,
@@ -731,9 +776,9 @@
         "wires": []
     },
     {
-        "id": "04c658b32a45d64c",
+        "id": "7cf87963d779f3a9",
         "type": "debug",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Reindex",
         "active": true,
         "tosidebar": true,
@@ -748,9 +793,9 @@
         "wires": []
     },
     {
-        "id": "6c5ecce85eb34337",
+        "id": "4c4a5b4217fa204c",
         "type": "debug",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Dokumenty",
         "active": true,
         "tosidebar": true,
@@ -765,9 +810,9 @@
         "wires": []
     },
     {
-        "id": "comment_individual",
+        "id": "08b3dc62d4848ee3",
         "type": "comment",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "📋 INDYWIDUALNE KROKI - Testuj każdy krok osobno",
         "info": "## Indywidualne kroki workflow\nMożesz testować każdy krok osobno klikając odpowiedni przycisk",
         "x": 260,
@@ -775,9 +820,9 @@
         "wires": []
     },
     {
-        "id": "seq1_full_success",
+        "id": "98a4d96cb3b3fbd0",
         "type": "inject",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "SEKWENCJA 1: Pełna rozmowa - sukces (znaleziono odpowiedź)",
         "props": [
             {
@@ -795,14 +840,14 @@
         "y": 300,
         "wires": [
             [
-                "seq1_function"
+                "979d62fe1e7edc08"
             ]
         ]
     },
     {
-        "id": "seq1_function",
+        "id": "979d62fe1e7edc08",
         "type": "function",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Sekwencja 1: Sukces",
         "func": "// SEKWENCJA 1: Pełna udana rozmowa (pytanie z odpowiedzią w bazie)\nconst conversation = [\n    {\n        name: \"1. Powitanie\",\n        payload: {input: \"\", step: \"greeting\"},\n        delay: 0\n    },\n    {\n        name: \"2. Zapytanie jak pomóc\",\n        payload: {input: \"\", step: \"ask_for_help\"},\n        delay: 2000\n    },\n    {\n        name: \"3. Zapytanie użytkownika\",\n        payload: {input: \"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\", step: \"receive_query\"},\n        delay: 4000\n    },\n    {\n        name: \"4-5. Wyszukiwanie i odpowiedź\",\n        payload: {input: \"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\", step: \"search_qdrant\"},\n        delay: 6000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? NIE\",\n        payload: {input: \"\", step: \"ask_continue\", continue: false},\n        delay: 8000\n    },\n    {\n        name: \"12. Pożegnanie\",\n        payload: {input: \"\", step: \"farewell\"},\n        delay: 10000\n    }\n];\n\nconversation.forEach((step, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: step.payload,\n            conversation_step: step.name,\n            step_number: index + 1,\n            sequence: \"SEKWENCJA 1: Pełna rozmowa - SUKCES\"\n        });\n    }, step.delay);\n});\n\nnode.status({fill: \"green\", shape: \"dot\", text: \"Sekwencja 1 uruchomiona - 6 kroków\"});\nreturn null;",
         "outputs": 1,
@@ -815,14 +860,14 @@
         "y": 300,
         "wires": [
             [
-                "c380192ce02f89b2"
+                "f25ad4f545ecb96b"
             ]
         ]
     },
     {
-        "id": "seq2_with_details",
+        "id": "591e1e50485be34a",
         "type": "inject",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "SEKWENCJA 2: Rozmowa z dodatkowymi detalami",
         "props": [
             {
@@ -840,16 +885,16 @@
         "y": 360,
         "wires": [
             [
-                "seq2_function"
+                "4695a64d5934c0e1"
             ]
         ]
     },
     {
-        "id": "seq2_function",
+        "id": "4695a64d5934c0e1",
         "type": "function",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Sekwencja 2: Z detalami",
-        "func": "// SEKWENCJA 2: Rozmowa wymagająca dodatkowych szczegółów\nconst conversation = [\n    {\n        name: \"1. Powitanie\",\n        payload: {input: \"\", step: \"greeting\"},\n        delay: 0\n    },\n    {\n        name: \"2. Zapytanie jak pomóc\",\n        payload: {input: \"\", step: \"ask_for_help\"},\n        delay: 2000\n    },\n    {\n        name: \"3. Zapytanie użytkownika\",\n        payload: {input: \"W jakim czasie mogę złożyć reklamację oceny?\", step: \"receive_query\"},\n        delay: 4000\n    },\n    {\n        name: \"4. Wyszukiwanie - brak wyników\",\n        payload: {input: \"W jakim czasie mogę złożyć reklamację oceny?\", step: \"search_qdrant\"},\n        delay: 6000\n    },\n    {\n        name: \"6. Prośba o dodatkowe szczegóły\",\n        payload: {input: \"\", step: \"ask_details\", original_query: \"W jakim czasie mogę złożyć reklamację oceny?\"},\n        delay: 8000\n    },\n    {\n        name: \"7. Użytkownik podaje więcej informacji\",\n        payload: {input: \"Przedstaw całą procedurę reklamacji oceny\", step: \"receive_details\", original_query: \"W jakim czasie mogę złożyć reklamację oceny?\"},\n        delay: 10000\n    },\n    {\n        name: \"8. Wyszukiwanie z detalami\",\n        payload: {input: \"Przedstaw całą procedurę reklamacji oceny\", step: \"search_with_details\", original_query: \"W jakim czasie mogę złożyć reklamację oceny?\"},\n        delay: 12000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? NIE\",\n        payload: {input: \"\", step: \"ask_continue\", continue: false},\n        delay: 14000\n    },\n    {\n        name: \"12. Pożegnanie\",\n        payload: {input: \"\", step: \"farewell\"},\n        delay: 16000\n    }\n];\n\nconversation.forEach((step, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: step.payload,\n            conversation_step: step.name,\n            step_number: index + 1,\n            sequence: \"SEKWENCJA 2: Z dodatkowymi detalami\"\n        });\n    }, step.delay);\n});\n\nnode.status({fill: \"yellow\", shape: \"dot\", text: \"Sekwencja 2 uruchomiona - 9 kroków\"});\nreturn null;",
+        "func": "// SEKWENCJA 2: Rozmowa wymagająca dodatkowych szczegółów\nconst additionalInfo = \"Przedstaw całą procedurę reklamacji oceny, włącznie z terminami i wymaganymi dokumentami\";\n\nconst conversation = [\n    {\n        name: \"1. Powitanie\",\n        payload: {input: \"\", step: \"greeting\"},\n        delay: 0\n    },\n    {\n        name: \"2. Zapytanie jak pomóc\",\n        payload: {input: \"\", step: \"ask_for_help\"},\n        delay: 2000\n    },\n    {\n        name: \"3. Zapytanie użytkownika\",\n        payload: {input: \"W jakim czasie mogę złożyć reklamację oceny?\", step: \"receive_query\"},\n        delay: 4000\n    },\n    {\n        name: \"4. Wyszukiwanie - brak wyników\",\n        payload: {input: \"W jakim czasie mogę złożyć reklamację oceny?\", step: \"search_qdrant\"},\n        delay: 6000\n    },\n    {\n        name: \"6. Prośba o dodatkowe szczegóły\",\n        payload: {input: \"\", step: \"ask_details\", original_query: \"W jakim czasie mogę złożyć reklamację oceny?\"},\n        delay: 8000\n    },\n    {\n        name: \"7. Użytkownik podaje więcej informacji\",\n        payload: {input: additionalInfo, step: \"receive_details\", original_query: \"W jakim czasie mogę złożyć reklamację oceny?\"},\n        delay: 10000\n    },\n    {\n        name: \"8. Wyszukiwanie z detalami\",\n        payload: {input: additionalInfo, step: \"search_with_details\", original_query: \"W jakim czasie mogę złożyć reklamację oceny?\"},\n        delay: 12000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? NIE\",\n        payload: {input: \"\", step: \"ask_continue\", continue: false},\n        delay: 14000\n    },\n    {\n        name: \"12. Pożegnanie\",\n        payload: {input: \"\", step: \"farewell\"},\n        delay: 16000\n    }\n];\n\nconversation.forEach((step, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: step.payload,\n            conversation_step: step.name,\n            step_number: index + 1,\n            sequence: \"SEKWENCJA 2: Z dodatkowymi detalami\"\n        });\n    }, step.delay);\n});\n\nnode.status({fill: \"yellow\", shape: \"dot\", text: \"Sekwencja 2 uruchomiona - 9 kroków\"});\nreturn null;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -860,14 +905,14 @@
         "y": 360,
         "wires": [
             [
-                "c380192ce02f89b2"
+                "f25ad4f545ecb96b"
             ]
         ]
     },
     {
-        "id": "seq3_create_ticket",
+        "id": "7428d63e2e1ab43d",
         "type": "inject",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "SEKWENCJA 3: Rozmowa z utworzeniem ticketu",
         "props": [
             {
@@ -885,16 +930,16 @@
         "y": 420,
         "wires": [
             [
-                "seq3_function"
+                "b8a511a63a97144f"
             ]
         ]
     },
     {
-        "id": "seq3_function",
+        "id": "b8a511a63a97144f",
         "type": "function",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Sekwencja 3: Z ticketem",
-        "func": "// SEKWENCJA 3: Rozmowa kończąca się utworzeniem ticketu\nconst conversation = [\n    {\n        name: \"1. Powitanie\",\n        payload: {input: \"\", step: \"greeting\"},\n        delay: 0\n    },\n    {\n        name: \"2. Zapytanie jak pomóc\",\n        payload: {input: \"\", step: \"ask_for_help\"},\n        delay: 2000\n    },\n    {\n        name: \"3. Zapytanie użytkownika\",\n        payload: {input: \"Chcę zmienić adres zamieszkania w systemie\", step: \"receive_query\"},\n        delay: 4000\n    },\n    {\n        name: \"4. Wyszukiwanie - brak wyników\",\n        payload: {input: \"Chcę zmienić adres zamieszkania w systemie\", step: \"search_qdrant\"},\n        delay: 6000\n    },\n    {\n        name: \"6. Prośba o dodatkowe szczegóły\",\n        payload: {input: \"\", step: \"ask_details\", original_query: \"Chcę zmienić adres zamieszkania w systemie\"},\n        delay: 8000\n    },\n    {\n        name: \"7. Użytkownik podaje więcej informacji\",\n        payload: {input: \"Chcę zgłosić do BOSU zmianę mojego adresu zamieszkania\", step: \"receive_details\", original_query: \"Chcę zmienić adres zamieszkania w systemie\"},\n        delay: 10000\n    },\n    {\n        name: \"8. Wyszukiwanie z detalami - nadal brak\",\n        payload: {input: \"Chcę zgłosić do BOSU zmianę mojego adresu zamieszkania\", step: \"search_with_details\", original_query: \"Chcę zmienić adres zamieszkania w systemie\"},\n        delay: 12000\n    },\n    {\n        name: \"9. Pytanie czy utworzyć ticket\",\n        payload: {step: \"ask_create_ticket\", input: \"Chcę zgłosić do BOSU zmianę mojego adresu zamieszkania\"},\n        delay: 14000\n    },\n    {\n        name: \"10. Tworzenie ticketu\",\n        payload: {step: \"classify_and_create_ticket\", input: \"Chcę zgłosić do BOSU zmianę mojego adresu zamieszkania\", create_ticket: true},\n        delay: 16000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? NIE\",\n        payload: {input: \"\", step: \"ask_continue\", continue: false},\n        delay: 18000\n    },\n    {\n        name: \"12. Pożegnanie\",\n        payload: {input: \"\", step: \"farewell\"},\n        delay: 20000\n    }\n];\n\nconversation.forEach((step, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: step.payload,\n            conversation_step: step.name,\n            step_number: index + 1,\n            sequence: \"SEKWENCJA 3: Z utworzeniem ticketu\"\n        });\n    }, step.delay);\n});\n\nnode.status({fill: \"orange\", shape: \"dot\", text: \"Sekwencja 3 uruchomiona - 11 kroków\"});\nreturn null;",
+        "func": "// SEKWENCJA 3: Rozmowa kończąca się utworzeniem ticketu\nconst student = {\n    first_name: \"Jan\",\n    last_name: \"Kowalski\",\n    index_number: \"123456\"\n};\n\nconst summary = \"Podsumowanie konwersacji: użytkownik zgłasza zmianę adresu zamieszkania w systemie i prosi o aktualizację danych w BOS.\";\nconst additionalInfo = [\n    \"Chcę zgłosić do BOSU zmianę mojego adresu zamieszkania\",\n    'Imię: ' + student.first_name,\n    'Nazwisko: ' + student.last_name,\n    'Indeks: ' + student.index_number,\n    summary\n].join(\"; \");\n\nconst conversation = [\n    {\n        name: \"1. Powitanie\",\n        payload: {input: \"\", step: \"greeting\"},\n        delay: 0\n    },\n    {\n        name: \"2. Zapytanie jak pomóc\",\n        payload: {input: \"\", step: \"ask_for_help\"},\n        delay: 2000\n    },\n    {\n        name: \"3. Zapytanie użytkownika\",\n        payload: {input: \"Chcę zmienić adres zamieszkania w systemie\", step: \"receive_query\"},\n        delay: 4000\n    },\n    {\n        name: \"4. Wyszukiwanie - brak wyników\",\n        payload: {input: \"Chcę zmienić adres zamieszkania w systemie\", step: \"search_qdrant\"},\n        delay: 6000\n    },\n    {\n        name: \"5. Prośba o dodatkowe szczegóły\",\n        payload: {input: \"\", step: \"ask_details\", original_query: \"Chcę zmienić adres zamieszkania w systemie\"},\n        delay: 8000\n    },\n    {\n        name: \"6. Użytkownik podaje więcej informacji\",\n        payload: {input: additionalInfo, step: \"receive_details\", original_query: \"Chcę zmienić adres zamieszkania w systemie\"},\n        delay: 10000\n    },\n    {\n        name: \"7. Wyszukiwanie z detalami - nadal brak\",\n        payload: {input: additionalInfo, step: \"search_with_details\", original_query: \"Chcę zmienić adres zamieszkania w systemie\"},\n        delay: 12000\n    },\n    {\n        name: \"8. Pytanie czy utworzyć ticket\",\n        payload: {step: \"ask_create_ticket\", input: \"Chcę zgłosić do BOSU zmianę mojego adresu zamieszkania\"},\n        delay: 14000\n    },\n    {\n        name: \"9. Użytkownik potwierdza: TAK\",\n        payload: {\n            step: \"ask_create_ticket\",\n            create_ticket: true,\n            input: \"\",\n            original_query: \"Chcę zmienić adres zamieszkania w systemie\",\n            additional_info: additionalInfo,\n            student,\n            conversation_summary: summary\n        },\n        delay: 16000\n    },\n    {\n        name: \"10. Czy potrzebujesz jeszcze pomocy? NIE\",\n        payload: {input: \"\", step: \"ask_continue\", continue: false},\n        delay: 18000\n    },\n    {\n        name: \"11. Pożegnanie\",\n        payload: {input: \"\", step: \"farewell\"},\n        delay: 20000\n    }\n];\n\nconversation.forEach((step, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: step.payload,\n            conversation_step: step.name,\n            step_number: index + 1,\n            sequence: \"SEKWENCJA 3: Z utworzeniem ticketu\"\n        });\n    }, step.delay);\n});\n\nnode.status({fill: \"orange\", shape: \"dot\", text: \"Sekwencja 3 uruchomiona - 11 kroków\"});\nreturn null;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -905,14 +950,14 @@
         "y": 420,
         "wires": [
             [
-                "c380192ce02f89b2"
+                "f25ad4f545ecb96b"
             ]
         ]
     },
     {
-        "id": "seq4_multiple_questions",
+        "id": "a249323129eaae51",
         "type": "inject",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "SEKWENCJA 4: Rozmowa z wieloma pytaniami",
         "props": [
             {
@@ -930,14 +975,14 @@
         "y": 480,
         "wires": [
             [
-                "seq4_function"
+                "25ba4b8cd595d094"
             ]
         ]
     },
     {
-        "id": "seq4_function",
+        "id": "25ba4b8cd595d094",
         "type": "function",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Sekwencja 4: Wiele pytań",
         "func": "// SEKWENCJA 4: Rozmowa z wieloma pytaniami (kontynuacja = TAK)\nconst conversation = [\n    {\n        name: \"1. Powitanie\",\n        payload: {input: \"\", step: \"greeting\"},\n        delay: 0\n    },\n    {\n        name: \"2. Zapytanie jak pomóc\",\n        payload: {input: \"\", step: \"ask_for_help\"},\n        delay: 2000\n    },\n    {\n        name: \"3. Pierwsze pytanie\",\n        payload: {input: \"Jakie są dostępne formy płatności w Extranecie?\", step: \"receive_query\"},\n        delay: 4000\n    },\n    {\n        name: \"4-5. Wyszukiwanie i odpowiedź\",\n        payload: {input: \"Jakie są dostępne formy płatności w Extranecie?\", step: \"search_qdrant\"},\n        delay: 6000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? TAK\",\n        payload: {input: \"\", step: \"ask_continue\", continue: true},\n        delay: 8000\n    },\n    {\n        name: \"3. Drugie pytanie (powrót do kroku 3)\",\n        payload: {input: \"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\", step: \"receive_query\"},\n        delay: 10000\n    },\n    {\n        name: \"4-5. Wyszukiwanie i odpowiedź\",\n        payload: {input: \"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\", step: \"search_qdrant\"},\n        delay: 12000\n    },\n    {\n        name: \"11. Czy potrzebujesz jeszcze pomocy? NIE\",\n        payload: {input: \"\", step: \"ask_continue\", continue: false},\n        delay: 14000\n    },\n    {\n        name: \"12. Pożegnanie\",\n        payload: {input: \"\", step: \"farewell\"},\n        delay: 16000\n    }\n];\n\nconversation.forEach((step, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: step.payload,\n            conversation_step: step.name,\n            step_number: index + 1,\n            sequence: \"SEKWENCJA 4: Wiele pytań\"\n        });\n    }, step.delay);\n});\n\nnode.status({fill: \"blue\", shape: \"dot\", text: \"Sekwencja 4 uruchomiona - 9 kroków\"});\nreturn null;",
         "outputs": 1,
@@ -950,14 +995,14 @@
         "y": 480,
         "wires": [
             [
-                "b5ad4344160f8d82"
+                "984f737566c17566"
             ]
         ]
     },
     {
-        "id": "b5ad4344160f8d82",
+        "id": "984f737566c17566",
         "type": "function",
-        "z": "bcd37c70fd470577",
+        "z": "e56d216f59a3382d",
         "name": "Sekwencja testów",
         "func": "// Przygotuj sekwencję testów z aktualnymi pytaniami\nconst tests = [\n    {\n        name: \"Test 1: Prawa i obowiązki Użytkownika\",\n        payload: {input: \"Jakie są Prawa i obowiązki Użytkownika Serwisu Extranet\", step: \"receive_query\"},\n        delay: 0\n    },\n    {\n        name: \"Test 2: Formy płatności\",\n        payload: {input: \"Jakie są dostępne formy płatności w Extranecie?\", step: \"receive_query\"},\n        delay: 5000\n    },\n    {\n        name: \"Test 3: Reklamacja oceny\",\n        payload: {input: \"W jakim czasie mogę złożyć reklamację oceny?\", step: \"receive_query\"},\n        delay: 10000\n    },\n    {\n        name: \"Test 4: Kontynuacja - pełna procedura\",\n        payload: {\n            input: \"Przedstaw całą procedurę reklamacji oceny\",\n            step: \"receive_details\",\n            original_query: \"W jakim czasie mogę złożyć reklamację oceny?\"\n        },\n        delay: 15000\n    },\n    {\n        name: \"Test 5: Dane osobowe i zgłoszenie do BOSU - zmiana adresu\",\n        payload: {input: \"Chcę sprawdzić jakie moje dane osobowe są w systemie i zgłosić do BOSU zmianę mojego adresu zamieszkania\", step: \"receive_query\"},\n        delay: 20000\n    }\n];\n\n// Wyślij testy z opóźnieniem\ntests.forEach((test, index) => {\n    setTimeout(() => {\n        node.send({\n            payload: test.payload,\n            test_name: test.name,\n            test_number: index + 1\n        });\n    }, test.delay);\n});\n\nnode.status({fill: \"blue\", shape: \"dot\", text: \"Sekwencja uruchomiona - 5 testów, 5s między nimi\"});\n\nreturn null;",
         "outputs": 1,
@@ -970,7 +1015,7 @@
         "y": 300,
         "wires": [
             [
-                "c380192ce02f89b2"
+                "f25ad4f545ecb96b"
             ]
         ]
     }

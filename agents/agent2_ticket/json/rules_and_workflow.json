@@ -84,8 +84,8 @@
                 "message": "Use classifying_ticket from agent_behavior.json",
                 "substeps": [
                     {
-                        "action": "analyze_query_with_llm",
-                        "description": "Use LLM to determine ticket category and priority"
+                        "action": "classify_category",
+                        "description": "Use LLM and keyword fallback to determine ticket category"
                     },
                     {
                         "action": "assign_priority",
@@ -111,6 +111,7 @@
                             "query": "user_query",
                             "additional_info": "additional_info",
                             "category": "determined_category",
+                            "category_name": "category_display_name",
                             "priority": "determined_priority",
                             "ticket_number": "generated_number",
                             "status": "created",

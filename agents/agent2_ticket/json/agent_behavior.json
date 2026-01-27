@@ -8,8 +8,8 @@
         "ask_for_details": "Nie znalazłem odpowiedzi w bazie dokumentów. Czy możesz podać więcej szczegółów lub przeformułować pytanie?",
         "searching_with_details": "Przeszukuję ponownie z dodatkowymi informacjami...",
         "ask_create_ticket": "Nie znalazłem odpowiedzi w dokumentacji. Czy chcesz, abym utworzył zgłoszenie do działu wsparcia?",
-        "classifying_ticket": "Klasyfikuję zgłoszenie i określam priorytet...",
-        "ticket_created": "Zgłoszenie zostało utworzone:\n- Numer zgłoszenia: {ticket_number}\n- Priorytet: {priority}\n- Szacowany czas rozwiązania: {estimated_time}\n- Status: {status}\n\nPowiadomienie zostało wysłane do Ciebie i działu wsparcia.",
+        "classifying_ticket": "Klasyfikuję zgłoszenie, przypisuję kategorię i określam priorytet...",
+        "ticket_created": "Zgłoszenie zostało utworzone:\n- Numer zgłoszenia: {ticket_number}\n- Kategoria: {category}\n- Priorytet: {priority}\n- Szacowany czas rozwiązania: {estimated_time}\n- Status: {status}",
         "ask_continue": "Czy mogę pomóc w czymś jeszcze?",
         "farewell": "Do zobaczenia! Powodzenia!",
         "error_response": "Przepraszam, wystąpił błąd podczas przetwarzania Twojego zapytania. Spróbuj ponownie."
@@ -21,8 +21,17 @@
         "P4": "3-5 dni"
     },
     "llm_prompts": {
+        "category_classification": "Przypisz zgłoszenie do jednej z kategorii na podstawie treści.\n\nDOSTĘPNE KATEGORIE:\n{categories_str}\n\nZGŁOSZENIE: {ticket_text}\n\nZasady:\n- wybierz tylko jedną kategorię\n- jeśli nie pasuje żadna, wybierz OTHER\n\nOdpowiedz TYLKO identyfikatorem kategorii (np. IT_ACCESS, IT_SOFTWARE, NETWORK, OTHER):",
         "priority_classification": "Przeanalizuj poniższe zgłoszenie i określ jego priorytet.\n\nDostępne priorytety:\n{priorities_str}\n\nZgłoszenie: {ticket_text}\n\nOkreśl priorytet na podstawie:\n- P1 (Critical): Krytyczny problem blokujący pracę, wymaga natychmiastowej reakcji\n- P2 (High): Ważny problem wpływający na pracę, wymaga szybkiej reakcji\n- P3 (Medium): Umiarkowany problem, standardowy czas reakcji\n- P4 (Low): Niski priorytet, można obsłużyć w kolejności\n\nOdpowiedz TYLKO literą i cyfrą priorytetu (P1, P2, P3 lub P4):",
         "generate_answer": "Jesteś asystentem WSB Merito o imieniu Adam. Odpowiedz na podstawie dokumentacji.\n\nDOKUMENTACJA:\n{context}\n\nPYTANIE: {query}\n\nINSTRUKCJE:\n- Odpowiedz jasno i konkretnie na podstawie dokumentacji\n- Jeśli dokumenty zawierają odpowiedź, podaj ją w pełni\n- Jeśli dokumenty nie zawierają odpowiedzi, powiedz to wprost\n- NIE wymyślaj informacji\n- Odpowiadaj po polsku\n\nODPOWIEDŹ:",
         "generate_answer_with_details": "Jesteś asystentem WSB Merito o imieniu Adam. Odpowiedz na podstawie dokumentacji.\n\nDOKUMENTACJA:\n{context}\n\nPYTANIE POCZĄTKOWE: {original_query}\nDODATKOWE INFORMACJE: {query}\n\nINSTRUKCJE:\n- Odpowiedz jasno i konkretnie na podstawie dokumentacji\n- Uwzględnij obie części pytania\n- Jeśli dokumenty nie zawierają odpowiedzi, powiedz to wprost\n- NIE wymyślaj informacji\n- Odpowiadaj po polsku\n\nODPOWIEDŹ:"
+    },
+    "responses": {
+        "greeting": "Dzień dobry! Jestem Twoim asystentem WSB Merito.",
+        "ask_for_help": "W czym mogę Ci dzisiaj pomóc?",
+        "no_results": "Nie znalazłem odpowiedzi na Twoje pytanie. Czy możesz podać więcej szczegółów?",
+        "ask_details": "Proszę, podaj więcej informacji, aby mogła lepiej Ci pomóc.",
+        "still_no_results": "Niestety nadal nie mogę znaleźć odpowiedzi w bazie wiedzy. Czy chcesz utworzyć zgłoszenie do BOS?",
+        "farewell": "Dziękuję za rozmowę. Do zobaczenia!"
     }
 }
