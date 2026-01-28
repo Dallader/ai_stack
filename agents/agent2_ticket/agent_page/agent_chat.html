@@ -229,7 +229,7 @@
 
             <div class="status-bar" id="statusBar">
                 <span class="status-dot"></span>
-                <span id="statusText">Ready - Agent 2 Ticket (port 8002)</span>
+                <span id="statusText">Ready - AWSB Merito (port 8002)</span>
             </div>
 
             <div class="chat-messages" id="chatMessages">
@@ -249,7 +249,7 @@
 
         <script>
             const AGENT_PORT = 8002;
-            const AGENT_NAME = 'Agent 2 - Ticket';
+            const AGENT_NAME = 'WSB Merito';
 
             const chatMessages = document.getElementById('chatMessages');
             const userInput = document.getElementById('userInput');
@@ -339,7 +339,7 @@
                     removeLoading();
                     let errorMsg = error.message;
                     if (error.message.includes('Load failed') || error.message.includes('Failed to fetch')) {
-                        errorMsg = `Cannot connect to agent. Please ensure:\n1. Docker containers are running (docker-compose up -d)\n2. Agent 2 is healthy on port ${AGENT_PORT}`;
+                        errorMsg = `Cannot connect to agent. Please ensure:\n1. Docker containers are running (docker-compose up -d)\n2. WSB Merito is healthy on port ${AGENT_PORT}`;
                     }
                     addMessage(errorMsg, 'assistant', 'Error');
                     statusBar.classList.add('error');
