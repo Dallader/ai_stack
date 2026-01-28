@@ -1,7 +1,7 @@
 services:
   # ==================== INFRASTRUCTURE ====================
   
-  # Ollama - LLM Server
+  # Ollama - LLM Server (optimized for M1 MacBook Pro 16GB - increased to 10GB)
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
@@ -11,6 +11,18 @@ services:
       - ollama_data:/app/data
     networks:
       - ai_network
+    environment:
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_NUM_THREAD=6
+      - OLLAMA_MAX_LOADED_MODELS=1
+    deploy:
+      resources:
+        limits:
+          cpus: '6'
+          memory: 12G
+        reservations:
+          cpus: '4'
+          memory: 8G
 
   # Qdrant - Vector Database
   qdrant:
@@ -24,6 +36,14 @@ services:
       - qdrant_data:/qdrant/storage
     networks:
       - ai_network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
 
   # Open WebUI - Chat Interface
   open-webui:
@@ -40,6 +60,14 @@ services:
       - ai_network
     depends_on:
       - ollama
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
 
   # Node-RED - Flow Orchestration
   node-red:
@@ -51,6 +79,14 @@ services:
       - nodered_data:/data
     networks:
       - ai_network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # ==================== AGENTS ====================
 
@@ -67,6 +103,14 @@ services:
     depends_on:
       - ollama
       - qdrant
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # Agent 2 - Ticket
   agent2_ticket:
@@ -78,9 +122,20 @@ services:
       - ai_network
     environment:
       - COLLECTION=agent2_tickets
+      - EMBEDDING_MODEL=nomic-embed-text
+      - EMBEDDING_DIM=768
+      - FORCE_RECREATE_COLLECTION=true
     depends_on:
       - ollama
       - qdrant
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # Agent 3 - Analytics
   agent3_analytics:
@@ -95,6 +150,14 @@ services:
     depends_on:
       - ollama
       - qdrant
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # Agent 4 - BOS
   agent4_bos:
@@ -109,6 +172,14 @@ services:
     depends_on:
       - ollama
       - qdrant
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   # Agent 5 - Security
   agent5_security:
@@ -123,6 +194,14 @@ services:
     depends_on:
       - ollama
       - qdrant
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
 # ==================== VOLUMES ====================
 volumes:
