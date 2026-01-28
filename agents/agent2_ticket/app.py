@@ -26,10 +26,10 @@ QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
 DOCUMENTS_PATH = os.getenv("DOCUMENTS_PATH", "/app/documents")
 # Default to a lightweight embedding model that Ollama hosts by default; override via env if desired.
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "mxbai-embed-large")
 # Use a lightweight model for faster responses by default; override via env if needed.
 LLM_MODEL = os.getenv("LLM_MODEL", "llama3.2:1b")
-EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "768"))
+EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "1024"))
 LLM_NUM_PREDICT = int(os.getenv("LLM_NUM_PREDICT", "512"))
 FORCE_RECREATE_COLLECTION = os.getenv("FORCE_RECREATE_COLLECTION", "false").lower() == "true"
 TICKET_STORE_PATH = os.getenv("TICKET_STORE_PATH", "/app/tickets.json")
