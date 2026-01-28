@@ -2,6 +2,8 @@ import os
 import glob
 import json
 import logging
+import uuid
+from datetime import datetime
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,6 +32,7 @@ LLM_MODEL = os.getenv("LLM_MODEL", "llama3.2:1b")
 EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "768"))
 LLM_NUM_PREDICT = int(os.getenv("LLM_NUM_PREDICT", "512"))
 FORCE_RECREATE_COLLECTION = os.getenv("FORCE_RECREATE_COLLECTION", "false").lower() == "true"
+TICKET_STORE_PATH = os.getenv("TICKET_STORE_PATH", "/app/tickets.json")
 
 llm = ChatOllama(
     model=LLM_MODEL,
@@ -192,11 +195,11 @@ def search_documents(query: str, k: int = 3):
         return []
 
 
-def generate_response(question: str, context_docs: list) -> str:
-    """Generate a response using RAG - simple and effective."""
+def generate_response(question: str, context_docs: list):
+    """Generate a response using RAG - returns tuple (answer, used_context)."""
     
     if not context_docs:
-        return prompt_config.get("no_context_response", "Nie znalazłem informacji na ten temat w dokumentach.")
+        return prompt_config.get("no_context_response", "Nie znalazłem informacji na ten temat w dokumentach."), False
     
     clarified_question = question
     student_phrases = prompt_config.get("student_deadline_phrases", ["ile mam"])
@@ -212,7 +215,7 @@ def generate_response(question: str, context_docs: list) -> str:
     
     if not relevant_docs:
         logger.info(f"No relevant documents found (best score: {context_docs[0][1]})")
-        return prompt_config.get("no_relevant_docs_response", "Nie znalazłem wystarczająco trafnych informacji w dokumentach.")
+        return prompt_config.get("no_relevant_docs_response", "Nie znalazłem wystarczająco trafnych informacji w dokumentach."), False
     
     context_parts = []
     
@@ -244,10 +247,78 @@ KRYTYCZNE ZASADY - CZYTAJ UWAŻNIE:
         response = llm.invoke(prompt)
         answer = response.content.strip()
         
-        return answer
+        return answer, True
     except Exception as e:
         logger.error(f"Error generating response: {e}")
-        return prompt_config.get("error_response", "Przepraszam, wystąpił błąd podczas generowania odpowiedzi.")
+        return prompt_config.get("error_response", "Przepraszam, wystąpił błąd podczas generowania odpowiedzi."), False
+
+
+def user_requests_ticket(question: str) -> bool:
+    """Detect whether the user explicitly wants to create a BOS ticket."""
+    q = question.lower()
+    ticket_phrases = [
+        "utwórz zgłoszenie", "zrób zgłoszenie", "złóż zgłoszenie", "otwórz zgłoszenie",
+        "ticket", "zgłoszenie", "przekaż do bos", "do bos", "biuro obsługi studenta",
+        "biuro obsługi", "bos", "wyślij zgłoszenie"
+    ]
+    return any(phrase in q for phrase in ticket_phrases)
+
+
+def classify_priority(question: str) -> str:
+    """Heuristic priority classifier for tickets."""
+    q = question.lower()
+    high_signals = ["pilne", "asap", "natychmiast", "nie działa", "błąd", "blokada", "deadline", "termin"]
+    medium_signals = ["problem", "issue", "opóźnienie", "zwłoka", "problem"]
+    if any(sig in q for sig in high_signals):
+        return "high"
+    if any(sig in q for sig in medium_signals):
+        return "medium"
+    return "low"
+
+
+def classify_category(question: str) -> str:
+    """Lightweight category guess based on keywords."""
+    q = question.lower()
+    categories = {
+        "finance": ["opłata", "płatność", "czesne", "faktura", "rachunek"],
+        "it_access": ["logowanie", "hasło", "dostęp", "konto", "loguj"],
+        "documents": ["zaświadczenie", "dokument", "podanie", "wniosek"],
+        "schedule": ["plan", "zajęć", "terminarz", "harmonogram"],
+        "general": []
+    }
+    for cat, keywords in categories.items():
+        if any(word in q for word in keywords):
+            return cat
+    return "general"
+
+
+def create_ticket(question: str) -> dict:
+    """Create a simple BOS ticket and persist it locally."""
+    ticket = {
+        "id": str(uuid.uuid4()),
+        "description": question,
+        "priority": classify_priority(question),
+        "category": classify_category(question),
+        "status": "new",
+        "source": "agent2_ticket",
+        "created_at": datetime.utcnow().isoformat() + "Z",
+    }
+    try:
+        # Persist with a lightweight append to JSON list
+        if os.path.exists(TICKET_STORE_PATH):
+            with open(TICKET_STORE_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if not isinstance(data, list):
+                    data = []
+        else:
+            data = []
+        data.append(ticket)
+        with open(TICKET_STORE_PATH, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        logger.info(f"Created BOS ticket {ticket['id']} with priority {ticket['priority']} and category {ticket['category']}")
+    except Exception as e:
+        logger.error(f"Failed to persist ticket: {e}")
+    return ticket
 
 
 @app.post("/run")
@@ -281,7 +352,19 @@ async def run(payload: dict):
     
     context_docs = search_documents(question, k=5)
     
-    response = generate_response(question, context_docs)
+    response, used_context = generate_response(question, context_docs)
+    if (not used_context) and user_requests_ticket(question):
+        ticket = create_ticket(question)
+        ticket_msg = (
+            "Nie znalazłem dokładnej odpowiedzi, więc utworzyłem zgłoszenie do BOS. "
+            f"ID: {ticket['id']}, kategoria: {ticket['category']}, priorytet: {ticket['priority']}."
+        )
+        return {
+            "response": ticket_msg,
+            "collection": COLLECTION,
+            "sources_found": len(context_docs),
+            "ticket": ticket,
+        }
     
     return {
         "response": response,
