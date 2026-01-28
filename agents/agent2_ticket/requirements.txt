@@ -2,6 +2,7 @@ fastapi
 uvicorn
 langchain
 langchain-community
+langchain-ollama
 langchain-qdrant
 langchain-text-splitters
 qdrant-client
