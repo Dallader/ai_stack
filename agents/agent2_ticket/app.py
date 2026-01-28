@@ -28,13 +28,14 @@ EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
 # Use a lightweight model for faster responses by default; override via env if needed.
 LLM_MODEL = os.getenv("LLM_MODEL", "llama3.2:1b")
 EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "768"))
+LLM_NUM_PREDICT = int(os.getenv("LLM_NUM_PREDICT", "512"))
 FORCE_RECREATE_COLLECTION = os.getenv("FORCE_RECREATE_COLLECTION", "false").lower() == "true"
 
 llm = ChatOllama(
     model=LLM_MODEL,
     base_url=OLLAMA_BASE_URL,
     temperature=0.0,  # Maximum determinism for factual accuracy
-    num_predict=150,  # Cap generation length to reduce latency
+    num_predict=LLM_NUM_PREDICT,  # Allow longer answers while remaining bounded
     top_k=5,  # Limit exploration for faster, focused decoding
     top_p=0.8,  # Slightly tighter nucleus sampling
 )
