@@ -278,7 +278,7 @@
 
                 const metaDiv = document.createElement('div');
                 metaDiv.className = 'message-meta';
-                metaDiv.textContent = meta || (type === 'user' ? 'You' : AGENT_NAME);
+                metaDiv.textContent = meta || (type === 'user' ? 'Student' : AGENT_NAME);
 
                 messageDiv.appendChild(contentDiv);
                 messageDiv.appendChild(metaDiv);
@@ -314,7 +314,7 @@
                 addLoading();
 
                 try {
-                    const response = await fetch(`http://localhost:${AGENT_PORT}/run`, {
+                    const response = await fetch(`/run`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -339,11 +339,11 @@
                     removeLoading();
                     let errorMsg = error.message;
                     if (error.message.includes('Load failed') || error.message.includes('Failed to fetch')) {
-                        errorMsg = `Cannot connect to agent. Please ensure:\n1. Docker containers are running (docker-compose up -d)\n2. WSB Merito is healthy on port ${AGENT_PORT}`;
+                        errorMsg = `Cannot connect to agent. Please ensure the agent is running.`;
                     }
                     addMessage(errorMsg, 'assistant', 'Error');
                     statusBar.classList.add('error');
-                    statusText.textContent = `Connection failed - port ${AGENT_PORT}`;
+                    statusText.textContent = `Connection failed`;
                 }
 
                 sendBtn.disabled = false;
@@ -358,12 +358,12 @@
             // Check connection on load
             async function checkConnection() {
                 try {
-                    const response = await fetch(`http://localhost:${AGENT_PORT}/docs`, { method: 'HEAD' });
+                    const response = await fetch(`/health`, { method: 'GET' });
                     statusBar.classList.remove('error');
                     statusText.textContent = `Connected - ${AGENT_NAME} (port ${AGENT_PORT})`;
                 } catch (e) {
                     statusBar.classList.add('error');
-                    statusText.textContent = `Waiting for agent on port ${AGENT_PORT}...`;
+                    statusText.textContent = `Waiting for agent...`;
                 }
             }
             checkConnection();
