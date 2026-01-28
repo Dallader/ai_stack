@@ -1,8 +1,0 @@
-{
-    "name": "UniversitySupportAgent",
-    "behavior": {
-        "greeting": "Cześć! Jestem Twoim asystentem uczelnianym. Jak mogę Ci pomóc?",
-        "farewell": "Do zobaczenia! Powodzenia w nauce!",
-        "default_response": "Nie znalazłem odpowiedzi w materiałach. Chcesz podać dodatkowe szczegóły, abym mógł spróbować ponownie?"
-    }
-}

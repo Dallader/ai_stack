@@ -1,5 +1,18 @@
 services:
-  # Infrastructure services (start first)
+  # ==================== INFRASTRUCTURE ====================
+  
+  # Ollama - LLM Server
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/app/data
+    networks:
+      - ai_network
+
+  # Qdrant - Vector Database
   qdrant:
     image: qdrant/qdrant:latest
     container_name: qdrant
@@ -12,18 +25,7 @@ services:
     networks:
       - ai_network
 
-  ollama:
-    image: ollama/ollama:tinyllama
-    container_name: ollama
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    networks:
-      - ai_network
-
-  # WebUI (depends on Ollama)
+  # Open WebUI - Chat Interface
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
     container_name: open-webui
@@ -39,121 +41,97 @@ services:
     depends_on:
       - ollama
 
-  # Agent services (depend on Qdrant and Ollama)
-  agent1_student:
-    build:
-      context: ./agents/agent1_student
-      dockerfile: Dockerfile
-    container_name: agent1_student
-    restart: unless-stopped
-    ports:
-      - "8001:8000"
-    networks:
-      - ai_network
-    environment:
-      - COLLECTION=agent1_student
-      - QDRANT_URL=http://qdrant:6333
-      - OLLAMA_BASE_URL=http://ollama:11434
-    depends_on:
-      - qdrant
-      - ollama
-
-  agent2_ticket:
-    build:
-      context: ./agents/agent2_ticket
-      dockerfile: Dockerfile
-    container_name: agent2_ticket
-    restart: unless-stopped
-    ports:
-      - "8002:8000"
-    networks:
-      - ai_network
-    environment:
-      - COLLECTION=agent2_tickets
-      - QDRANT_URL=http://qdrant:6333
-      - OLLAMA_BASE_URL=http://ollama:11434
-    depends_on:
-      - qdrant
-      - ollama
-
-  agent3_analytics:
-    build:
-      context: ./agents/agent3_analytics
-      dockerfile: Dockerfile
-    container_name: agent3_analytics
-    restart: unless-stopped
-    ports:
-      - "8003:8000"
-    networks:
-      - ai_network
-    environment:
-      - COLLECTION=agent3_stats
-      - QDRANT_URL=http://qdrant:6333
-      - OLLAMA_BASE_URL=http://ollama:11434
-    depends_on:
-      - qdrant
-      - ollama
-
-  agent4_bos:
-    build:
-      context: ./agents/agent4_bos
-      dockerfile: Dockerfile
-    container_name: agent4_bos
-    restart: unless-stopped
-    ports:
-      - "8004:8000"
-    networks:
-      - ai_network
-    environment:
-      - COLLECTION=agent4_bos
-      - QDRANT_URL=http://qdrant:6333
-      - OLLAMA_BASE_URL=http://ollama:11434
-    depends_on:
-      - qdrant
-      - ollama
-
-  agent5_security:
-    build:
-      context: ./agents/agent5_security
-      dockerfile: Dockerfile
-    container_name: agent5_security
-    restart: unless-stopped
-    ports:
-      - "8005:8000"
-    networks:
-      - ai_network
-    environment:
-      - COLLECTION=agent5_audit
-      - QDRANT_URL=http://qdrant:6333
-      - OLLAMA_BASE_URL=http://ollama:11434
-    depends_on:
-      - qdrant
-      - ollama
-
-  # Node-RED (depends on all agents being available)
+  # Node-RED - Flow Orchestration
   node-red:
     image: nodered/node-red:latest
     container_name: node-red
-    restart: unless-stopped
     ports:
       - "1880:1880"
     volumes:
       - nodered_data:/data
     networks:
       - ai_network
-    depends_on:
-      - agent1_student
-      - agent2_ticket
-      - agent3_analytics
-      - agent4_bos
-      - agent5_security
 
+  # ==================== AGENTS ====================
+
+  # Agent 1 - Student
+  agent1_student:
+    build: ./agents/agent1_student
+    container_name: agent1_student
+    ports:
+      - "8001:8000"
+    networks:
+      - ai_network
+    environment:
+      - COLLECTION=agent1_student
+    depends_on:
+      - ollama
+      - qdrant
+
+  # Agent 2 - Ticket
+  agent2_ticket:
+    build: ./agents/agent2_ticket
+    container_name: agent2_ticket
+    ports:
+      - "8002:8000"
+    networks:
+      - ai_network
+    environment:
+      - COLLECTION=agent2_tickets
+    depends_on:
+      - ollama
+      - qdrant
+
+  # Agent 3 - Analytics
+  agent3_analytics:
+    build: ./agents/agent3_analytics
+    container_name: agent3_analytics
+    ports:
+      - "8003:8000"
+    networks:
+      - ai_network
+    environment:
+      - COLLECTION=agent3_stats
+    depends_on:
+      - ollama
+      - qdrant
+
+  # Agent 4 - BOS
+  agent4_bos:
+    build: ./agents/agent4_bos
+    container_name: agent4_bos
+    ports:
+      - "8004:8000"
+    networks:
+      - ai_network
+    environment:
+      - COLLECTION=agent4_bos
+    depends_on:
+      - ollama
+      - qdrant
+
+  # Agent 5 - Security
+  agent5_security:
+    build: ./agents/agent5_security
+    container_name: agent5_security
+    ports:
+      - "8005:8000"
+    networks:
+      - ai_network
+    environment:
+      - COLLECTION=agent5_audit
+    depends_on:
+      - ollama
+      - qdrant
+
+# ==================== VOLUMES ====================
 volumes:
-  qdrant_data:
   ollama_data:
+  qdrant_data:
   open_webui_data:
   nodered_data:
 
+# ==================== NETWORKS ====================
 networks:
   ai_network:
     driver: bridge

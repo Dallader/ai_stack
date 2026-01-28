@@ -3,9 +3,3 @@ uvicorn
 langchain
 langchain-community
 qdrant-client
-pypdf2
-python-docx
-python-multipart
-pdfplumber
-openpyxl
-markdown
