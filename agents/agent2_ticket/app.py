@@ -56,8 +56,9 @@ llm = ChatOllama(
     base_url=OLLAMA_BASE_URL,
     temperature=0.0,
     num_predict=LLM_NUM_PREDICT,
-    top_k=5,
-    top_p=0.8,
+    top_k=15,
+    top_p=0.4,
+    repeat_penalty=1.2,
 )
 embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL, base_url=OLLAMA_BASE_URL)
 qdrant_client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
