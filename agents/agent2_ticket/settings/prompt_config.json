@@ -10,12 +10,14 @@
         "NIE podawaj informacji o uczelni gdy pytanie dotyczy studenta",
         "Jeśli odpowiedzi nie ma w kontekście, napisz: \"Nie znalazłem tej informacji\""
     ],
-    "response_instruction": "ODPOWIEDŹ (2-3 zdania, cytuj dokładny fragment z kontekstu):",
+    "response_instruction": "ODPOWIEDŹ (5-6 zdań logicznych, powiązanych z kontekstem, cytuj dokładny fragment z kontekstu):",
     "student_deadline_phrases": [
         "ile mam",
         "ile czasu mam",
         "mam czasu",
-        "kiedy muszę"
+        "kiedy muszę",
+        "ile mam dni",
+        "ile dni"
     ],
     "clarification_prefix": "PYTANIE STUDENTA O JEGO WŁASNY TERMIN:",
     "no_context_response": "Nie znalazłem informacji na ten temat w dokumentach.",

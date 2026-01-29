@@ -61,6 +61,8 @@ async function sendMessage() {
     addMessage(message, 'user');
     userInput.value = '';
     sendBtn.disabled = true;
+    userInput.disabled = true;
+    clearBtn.disabled = true;
     addLoading();
 
     try {
@@ -79,7 +81,6 @@ async function sendMessage() {
         }
 
         const data = await response.json();
-        // Handle the ticket_classification response
         const result = data.ticket_classification || data.result || data.response || JSON.stringify(data, null, 2);
         addMessage(result, 'assistant');
         statusBar.classList.remove('error');
@@ -94,18 +95,23 @@ async function sendMessage() {
         addMessage(errorMsg, 'assistant', 'Error');
         statusBar.classList.add('error');
         statusText.textContent = `Connection failed`;
+    } finally {
+        sendBtn.disabled = false;
+        userInput.disabled = false;
+        clearBtn.disabled = false;
+        userInput.focus();
     }
-
-    sendBtn.disabled = false;
-    userInput.focus();
 }
 
 sendBtn.addEventListener('click', sendMessage);
-userInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendMessage();
+userInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    if (e.isComposing) return;
+    e.preventDefault();
+    if (userInput.disabled || sendBtn.disabled) return;
+    sendMessage();
 });
 
-// Check connection on load
 async function checkConnection() {
     try {
         const response = await fetch(`/health`, { method: 'GET' });

@@ -25,14 +25,13 @@ QDRANT_HOST = os.getenv("QDRANT_HOST", "qdrant")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
 DOCUMENTS_PATH = os.getenv("DOCUMENTS_PATH", "/app/documents")
-# Default to a lightweight embedding model that Ollama hosts by default; override via env if desired.
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "mxbai-embed-large")
-# Use a lightweight model for faster responses by default; override via env if needed.
 LLM_MODEL = os.getenv("LLM_MODEL", "llama3.2:1b")
 EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "1024"))
 LLM_NUM_PREDICT = int(os.getenv("LLM_NUM_PREDICT", "512"))
 FORCE_RECREATE_COLLECTION = os.getenv("FORCE_RECREATE_COLLECTION", "false").lower() == "true"
 TICKET_STORE_PATH = os.getenv("TICKET_STORE_PATH", "/app/tickets.json")
+AUTO_INDEX_ON_STARTUP = os.getenv("AUTO_INDEX_ON_STARTUP", "false").lower() == "true"
 
 llm = ChatOllama(
     model=LLM_MODEL,
@@ -65,6 +64,21 @@ except Exception as e:
         "error_response": "Przepraszam, wystąpił błąd."
     }
 
+# Load behavior config (assistant name / role)
+behavior = {}
+BEHAVIOR_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "settings", "behavior.json")
+try:
+    with open(BEHAVIOR_CONFIG_PATH, "r", encoding="utf-8") as f:
+        behavior = json.load(f)
+        logger.info("Loaded behavior configuration from behavior.json")
+except Exception as e:
+    logger.warning(f"Could not load behavior config: {e}. Using defaults.")
+    behavior = {
+        "assistant_name": "Asystent WSB Merito",
+        "assistant_role": "helper dla studentów WSB Merito",
+        "language": prompt_config.get("language", "pl")
+    }
+
 
 def load_documents_from_folder(folder_path: str):
     """Load all supported documents from a folder."""
@@ -93,12 +107,16 @@ def load_documents_from_folder(folder_path: str):
     return documents
 
 
-def initialize_vector_store():
-    """Initialize Qdrant vector store and load documents."""
+def initialize_vector_store(auto_index: bool = False):
+    """Initialize Qdrant vector store. If `auto_index` is True, load and index documents when collection is missing.
+
+    By default (auto_index=False) the function will create/connect an empty collection and will NOT index
+    documents. Use `/reload-documents` to explicitly trigger indexing.
+    """
     global vector_store
-    
+
     try:
-        if FORCE_RECREATE_COLLECTION:
+        if FORCE_RECREATE_COLLECTION and auto_index:
             try:
                 qdrant_client.delete_collection(COLLECTION)
                 logger.info(f"Force deleted collection: {COLLECTION}")
@@ -107,35 +125,43 @@ def initialize_vector_store():
 
         collections = qdrant_client.get_collections().collections
         collection_exists = any(c.name == COLLECTION for c in collections)
-        
+
         if not collection_exists:
             logger.info(f"Creating new collection: {COLLECTION}")
             qdrant_client.create_collection(
                 collection_name=COLLECTION,
                 vectors_config=VectorParams(size=EMBEDDING_DIM, distance=Distance.COSINE),
             )
-            
-            documents = load_documents_from_folder(DOCUMENTS_PATH)
-            
-            if documents:
-                text_splitter = RecursiveCharacterTextSplitter(
-                    chunk_size=1000,
-                    chunk_overlap=200,
-                    length_function=len,
-                )
-                chunks = text_splitter.split_documents(documents)
-                logger.info(f"Split documents into {len(chunks)} chunks")
-                
-                vector_store = QdrantVectorStore.from_documents(
-                    documents=chunks,
-                    embedding=embeddings,
-                    collection_name=COLLECTION,
-                    url=f"http://{QDRANT_HOST}:{QDRANT_PORT}",
-                    force_recreate=FORCE_RECREATE_COLLECTION,
-                )
-                logger.info(f"Successfully indexed {len(chunks)} document chunks")
+
+            if auto_index:
+                documents = load_documents_from_folder(DOCUMENTS_PATH)
+
+                if documents:
+                    text_splitter = RecursiveCharacterTextSplitter(
+                        chunk_size=256,
+                        chunk_overlap=50,
+                        length_function=len,
+                    )
+                    chunks = text_splitter.split_documents(documents)
+                    logger.info(f"Split documents into {len(chunks)} chunks")
+
+                    vector_store = QdrantVectorStore.from_documents(
+                        documents=chunks,
+                        embedding=embeddings,
+                        collection_name=COLLECTION,
+                        url=f"http://{QDRANT_HOST}:{QDRANT_PORT}",
+                        force_recreate=FORCE_RECREATE_COLLECTION,
+                    )
+                    logger.info(f"Successfully indexed {len(chunks)} document chunks")
+                else:
+                    logger.warning("No documents found to load")
+                    vector_store = QdrantVectorStore(
+                        client=qdrant_client,
+                        collection_name=COLLECTION,
+                        embedding=embeddings,
+                    )
             else:
-                logger.warning("No documents found to load")
+                logger.info("Auto-index on startup disabled; created empty collection")
                 vector_store = QdrantVectorStore(
                     client=qdrant_client,
                     collection_name=COLLECTION,
@@ -148,10 +174,10 @@ def initialize_vector_store():
                 collection_name=COLLECTION,
                 embedding=embeddings,
             )
-            
+
             collection_info = qdrant_client.get_collection(COLLECTION)
             logger.info(f"Collection has {collection_info.points_count} vectors")
-            
+
     except Exception as e:
         logger.error(f"Error initializing vector store: {e}")
         raise
@@ -161,7 +187,7 @@ def initialize_vector_store():
 async def lifespan(app: FastAPI):
     """Application lifespan - initialize on startup."""
     logger.info("Starting Agent2 Ticket - initializing RAG system...")
-    initialize_vector_store()
+    initialize_vector_store(auto_index=AUTO_INDEX_ON_STARTUP)
     logger.info("RAG system initialized successfully")
     yield
     logger.info("Shutting down Agent2 Ticket...")
@@ -193,6 +219,31 @@ def search_documents(query: str, k: int = 3):
     except Exception as e:
         logger.error(f"Error searching documents: {e}")
         return []
+
+PHRASES_PATH = os.path.join(os.path.dirname(__file__), "settings", "phrases.json")
+try:
+    with open(PHRASES_PATH, "r", encoding="utf-8") as f:
+        loaded = json.load(f)
+        if isinstance(loaded, list) and loaded:
+            GREETING_PHRASES = loaded
+            logger.info("Loaded greeting phrases from phrases.json (list)")
+        elif isinstance(loaded, dict) and loaded.get("greeting_phrases"):
+            gp = loaded.get("greeting_phrases")
+            if isinstance(gp, list) and gp:
+                GREETING_PHRASES = gp
+                logger.info("Loaded greeting phrases from phrases.json (greeting_phrases)")
+            else:
+                logger.warning("phrases.json.greeting_phrases is present but not a non-empty list; using defaults")
+        else:
+            logger.warning("phrases.json loaded but content is not a recognized format; using defaults")
+except Exception as e:
+    logger.warning(f"Could not load phrases.json: {e}. Using defaults.")
+
+def is_greeting(text: str) -> bool:
+    if not text:
+        return False
+    q = text.lower()
+    return any(phrase in q for phrase in GREETING_PHRASES)
 
 
 def generate_response(question: str, context_docs: list):
@@ -259,7 +310,7 @@ def user_requests_ticket(question: str) -> bool:
     ticket_phrases = [
         "utwórz zgłoszenie", "zrób zgłoszenie", "złóż zgłoszenie", "otwórz zgłoszenie",
         "ticket", "zgłoszenie", "przekaż do bos", "do bos", "biuro obsługi studenta",
-        "biuro obsługi", "bos", "wyślij zgłoszenie"
+        "biuro obsługi", "bos", "bosu", "wyślij zgłoszenie"
     ]
     return any(phrase in q for phrase in ticket_phrases)
 
@@ -268,7 +319,7 @@ def classify_priority(question: str) -> str:
     """Heuristic priority classifier for tickets."""
     q = question.lower()
     high_signals = ["pilne", "asap", "natychmiast", "nie działa", "błąd", "blokada", "deadline", "termin"]
-    medium_signals = ["problem", "issue", "opóźnienie", "zwłoka", "problem"]
+    medium_signals = ["problem", "issue", "opóźnienie", "zwłoka"]
     if any(sig in q for sig in high_signals):
         return "high"
     if any(sig in q for sig in medium_signals):
@@ -304,7 +355,6 @@ def create_ticket(question: str) -> dict:
         "created_at": datetime.utcnow().isoformat() + "Z",
     }
     try:
-        # Persist with a lightweight append to JSON list
         if os.path.exists(TICKET_STORE_PATH):
             with open(TICKET_STORE_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -334,6 +384,16 @@ async def run(payload: dict):
         }
     
     logger.info(f"Received question: {question}")
+    # If the user only greets, reply with a short assistant introduction
+    if is_greeting(question):
+        assistant_name = behavior.get("assistant_name", "Asystent")
+        assistant_role = behavior.get("assistant_role", "")
+        intro = f"Cześć, jestem {assistant_name} - {assistant_role}. Jak mogę pomóc?"
+        return {
+            "response": intro,
+            "collection": COLLECTION,
+            "sources_found": 0
+        }
     
     # Handle meta-questions about documents
     doc_list_phrases = ["jakie masz dokumenty", "jakie dokumenty", "lista dokumentów", "pokaż dokumenty", "what documents"]
@@ -402,14 +462,16 @@ async def get_chat_ui():
 async def reload_documents():
     """Endpoint to reload documents from the documents folder."""
     try:
+        # Delete existing collection and re-index documents explicitly
         qdrant_client.delete_collection(COLLECTION)
         logger.info(f"Deleted collection: {COLLECTION}")
-        
-        initialize_vector_store()
-        
+
+        # Recreate collection and force indexing now
+        initialize_vector_store(auto_index=True)
+
         return {
             "status": "success",
-            "message": "Documents reloaded successfully",
+            "message": "Documents reloaded and indexed successfully",
             "collection": COLLECTION
         }
     except Exception as e:
