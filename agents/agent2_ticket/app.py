@@ -5,12 +5,14 @@ import logging
 import uuid
 from datetime import datetime
 from contextlib import asynccontextmanager
+from typing import List, Tuple, Dict, Any
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from langchain_community.chat_models import ChatOllama
-from langchain_ollama import OllamaEmbeddings
+
+from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_community.document_loaders import (
     PyPDFLoader,
     TextLoader,
@@ -25,6 +27,9 @@ from qdrant_client.http.models import Distance, VectorParams
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# -----------------------------
+# KONFIGURACJA / ENV VARS
+# -----------------------------
 COLLECTION = os.getenv("COLLECTION", "agent2_tickets")
 TICKET_COLLECTION = os.getenv("TICKET_COLLECTION", "tickets")
 QDRANT_HOST = os.getenv("QDRANT_HOST", "qdrant")
@@ -32,30 +37,38 @@ QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
 DOCUMENTS_PATH = os.getenv("DOCUMENTS_PATH", "/app/documents")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "mxbai-embed-large")
-LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:32b")
+LLM_MODEL = os.getenv("LLM_MODEL", "tinyllama")
 EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "1024"))
 LLM_NUM_PREDICT = int(os.getenv("LLM_NUM_PREDICT", "512"))
 FORCE_RECREATE_COLLECTION = (
     os.getenv("FORCE_RECREATE_COLLECTION", "false").lower() == "true"
 )
-TICKET_STORE_PATH = os.getenv("TICKET_STORE_PATH", "/app/tickets.json")
+TICKET_STORE_PATH = os.getenv(
+    "TICKET_STORE_PATH", "/app/tickets.json"
+)  # aktualnie nieużywany, zostawiony na przyszłość
 AUTO_INDEX_ON_STARTUP = os.getenv("AUTO_INDEX_ON_STARTUP", "false").lower() == "true"
 
+# -----------------------------
+# LLM / EMBEDDINGS / QDRANT
+# -----------------------------
 llm = ChatOllama(
     model=LLM_MODEL,
     base_url=OLLAMA_BASE_URL,
-    temperature=0.0,  # Maximum determinism for factual accuracy
-    num_predict=LLM_NUM_PREDICT,  # Allow longer answers while remaining bounded
-    top_k=5,  # Limit exploration for faster, focused decoding
-    top_p=0.8,  # Slightly tighter nucleus sampling
+    temperature=0.0,
+    num_predict=LLM_NUM_PREDICT,
+    top_k=5,
+    top_p=0.8,
 )
 embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL, base_url=OLLAMA_BASE_URL)
 qdrant_client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
-vector_store = None
-ticket_vector_store = None
 
-conversations = {}
+vector_store: QdrantVectorStore | None = None
+ticket_vector_store: QdrantVectorStore | None = None
+conversations: Dict[str, Dict[str, Any]] = {}
 
+# -----------------------------
+# PROMPT / ZACHOWANIE
+# -----------------------------
 prompt_config = {}
 PROMPT_CONFIG_PATH = os.path.join(
     os.path.dirname(__file__), "settings", "prompt_config.json"
@@ -65,17 +78,10 @@ try:
         prompt_config = json.load(f)
         logger.info("Loaded prompt configuration from prompt_config.json")
 except Exception as e:
-    logger.warning(f"Could not load prompt config: {e}. Using defaults.")
-    prompt_config = {
-        "system_instruction": "Jesteś precyzyjnym asystentem dla studentów.",
-        "critical_rules": [],
-        "response_instruction": "ODPOWIEDŹ:",
-        "student_deadline_phrases": ["ile mam"],
-        "clarification_prefix": "PYTANIE STUDENTA:",
-        "no_context_response": "Nie znalazłem informacji.",
-        "no_relevant_docs_response": "Nie znalazłem informacji.",
-        "error_response": "Przepraszam, wystąpił błąd.",
-    }
+    logger.error(
+        f"Could not load prompt config: {e}. Please ensure prompt_config.json exists and is valid."
+    )
+    raise
 
 behavior = {}
 BEHAVIOR_CONFIG_PATH = os.path.join(
@@ -86,12 +92,94 @@ try:
         behavior = json.load(f)
         logger.info("Loaded behavior configuration from behavior.json")
 except Exception as e:
-    logger.warning(f"Could not load behavior config: {e}. Using defaults.")
-    behavior = {
-        "assistant_name": "Asystent WSB Merito",
-        "assistant_role": "helper dla studentów WSB Merito",
-        "language": prompt_config.get("language", "pl"),
+    logger.error(
+        f"Could not load behavior config: {e}. Please ensure behavior.json exists and is valid."
+    )
+    raise
+
+# -----------------------------
+# FRAZY POWITALNE
+# -----------------------------
+PHRASES_PATH = os.path.join(os.path.dirname(__file__), "settings", "phrases.json")
+GREETING_PHRASES = ["cześć", "dzień", "witaj", "hej"]
+try:
+    with open(PHRASES_PATH, "r", encoding="utf-8") as f:
+        loaded = json.load(f)
+        if isinstance(loaded, list) and loaded:
+            GREETING_PHRASES = loaded
+            logger.info("Loaded greeting phrases from phrases.json (list)")
+        elif isinstance(loaded, dict) and loaded.get("greeting_phrases"):
+            gp = loaded.get("greeting_phrases")
+            if isinstance(gp, list) and gp:
+                GREETING_PHRASES = gp
+                logger.info(
+                    "Loaded greeting phrases from phrases.json (greeting_phrases)"
+                )
+            else:
+                logger.warning(
+                    "phrases.json.greeting_phrases is present but not a non-empty list; using defaults"
+                )
+        else:
+            logger.warning(
+                "phrases.json loaded but content is not a recognized format; using defaults"
+            )
+except Exception as e:
+    logger.warning(f"Could not load phrases.json: {e}. Using defaults.")
+
+# -----------------------------
+# POMOCNICY
+# -----------------------------
+NEGATIVE_RESPONSES = [
+    "nie",
+    "nie chcę",
+    "nie chce",
+    "nie, dziękuję",
+    "nie dziekuje",
+    "nie, dzięki",
+    "nie dzieki",
+    "nie zgadzam się",
+    "nie zgadzam sie",
+]
+
+
+def is_negative_response(text: str) -> bool:
+    q = text.lower().strip()
+    return any(nr in q for nr in NEGATIVE_RESPONSES)
+
+
+def is_greeting(text: str) -> bool:
+    if not text:
+        return False
+    q = text.lower()
+    return any(phrase in q for phrase in GREETING_PHRASES)
+
+
+def start_ticket_flow(conv: dict, mode: str = "collecting_name") -> str:
+    conv["state"] = mode
+    if mode == "collecting_name":
+        return "Świetnie, utworzę zgłoszenie. Proszę podaj swoje imię."
+    return "Świetnie, utworzę zgłoszenie. Proszę podaj swoje dane: imię, nazwisko, email i numer indeksu."
+
+
+def send_response(
+    question: str,
+    response: str,
+    session_id: str,
+    conv: dict,
+    sources_found: int = 0,
+    extra: dict | None = None,
+) -> dict:
+    """Append response to conversation history and return API payload."""
+    conv["history"].append({"question": question, "response": response})
+    payload = {
+        "response": response,
+        "collection": COLLECTION,
+        "sources_found": sources_found,
+        "session_id": session_id,
     }
+    if extra:
+        payload.update(extra)
+    return payload
 
 
 def load_documents_from_folder(folder_path: str):
@@ -115,7 +203,6 @@ def load_documents_from_folder(folder_path: str):
                 loader = loader_class(file_path)
                 docs = loader.load()
 
-                # Determine category from relative path
                 rel_path = os.path.relpath(file_path, folder_path)
                 category = os.path.dirname(rel_path)
                 if not category or category == ".":
@@ -142,6 +229,7 @@ def initialize_vector_store(auto_index: bool = False):
         collections = qdrant_client.get_collections().collections
         collection_names = [c.name for c in collections]
 
+        # Główna kolekcja dokumentów
         if FORCE_RECREATE_COLLECTION and auto_index:
             try:
                 qdrant_client.delete_collection(COLLECTION)
@@ -160,7 +248,6 @@ def initialize_vector_store(auto_index: bool = False):
 
             if auto_index:
                 documents = load_documents_from_folder(DOCUMENTS_PATH)
-
                 if documents:
                     text_splitter = RecursiveCharacterTextSplitter(
                         chunk_size=256,
@@ -179,7 +266,9 @@ def initialize_vector_store(auto_index: bool = False):
                     )
                     logger.info(f"Successfully indexed {len(chunks)} document chunks")
                 else:
-                    logger.warning("No documents found to load")
+                    logger.warning(
+                        "No documents found to load; creating empty vector store connection"
+                    )
                     vector_store = QdrantVectorStore(
                         client=qdrant_client,
                         collection_name=COLLECTION,
@@ -199,10 +288,17 @@ def initialize_vector_store(auto_index: bool = False):
                 collection_name=COLLECTION,
                 embedding=embeddings,
             )
+            try:
+                collection_info = qdrant_client.get_collection(COLLECTION)
+                points_count = getattr(
+                    collection_info, "points_count", None
+                ) or getattr(collection_info, "vectors_count", None)
+                if points_count is not None:
+                    logger.info(f"Collection has {points_count} vectors")
+            except Exception as e:
+                logger.warning(f"Could not read collection info for {COLLECTION}: {e}")
 
-            collection_info = qdrant_client.get_collection(COLLECTION)
-            logger.info(f"Collection has {collection_info.points_count} vectors")
-
+        # Kolekcja ticketów
         if TICKET_COLLECTION not in collection_names:
             logger.info(f"Creating new ticket collection: {TICKET_COLLECTION}")
             qdrant_client.create_collection(
@@ -225,42 +321,26 @@ def initialize_vector_store(auto_index: bool = False):
                 collection_name=TICKET_COLLECTION,
                 embedding=embeddings,
             )
-
-            collection_info = qdrant_client.get_collection(TICKET_COLLECTION)
-            logger.info(f"Ticket collection has {collection_info.points_count} vectors")
+            try:
+                collection_info = qdrant_client.get_collection(TICKET_COLLECTION)
+                points_count = getattr(
+                    collection_info, "points_count", None
+                ) or getattr(collection_info, "vectors_count", None)
+                if points_count is not None:
+                    logger.info(f"Ticket collection has {points_count} vectors")
+            except Exception as e:
+                logger.warning(
+                    f"Could not read collection info for {TICKET_COLLECTION}: {e}"
+                )
 
     except Exception as e:
         logger.error(f"Error initializing vector stores: {e}")
         raise
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan - initialize on startup."""
-    logger.info("Starting Agent2 Ticket - initializing RAG system...")
-    initialize_vector_store(auto_index=AUTO_INDEX_ON_STARTUP)
-    logger.info("RAG system initialized successfully")
-    yield
-    logger.info("Shutting down Agent2 Ticket...")
-
-
-app = FastAPI(lifespan=lifespan)
-
-static_path = os.path.join(os.path.dirname(__file__), "static")
-app.mount("/static", StaticFiles(directory=static_path), name="static")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
 def search_documents(query: str, k: int = 3):
     """Search for relevant documents and tickets in Qdrant."""
-    all_results = []
+    all_results: List[Tuple[Any, float]] = []
 
     if vector_store is not None:
         try:
@@ -284,49 +364,16 @@ def search_documents(query: str, k: int = 3):
         except Exception as e:
             logger.error(f"Error searching tickets: {e}")
 
+    # sort rosnąco po dystansie (dla COSINE mniejszy = bliżej)
     all_results.sort(key=lambda x: x[1])
 
     return all_results[:k]
 
 
-PHRASES_PATH = os.path.join(os.path.dirname(__file__), "settings", "phrases.json")
-try:
-    with open(PHRASES_PATH, "r", encoding="utf-8") as f:
-        loaded = json.load(f)
-        if isinstance(loaded, list) and loaded:
-            GREETING_PHRASES = loaded
-            logger.info("Loaded greeting phrases from phrases.json (list)")
-        elif isinstance(loaded, dict) and loaded.get("greeting_phrases"):
-            gp = loaded.get("greeting_phrases")
-            if isinstance(gp, list) and gp:
-                GREETING_PHRASES = gp
-                logger.info(
-                    "Loaded greeting phrases from phrases.json (greeting_phrases)"
-                )
-            else:
-                logger.warning(
-                    "phrases.json.greeting_phrases is present but not a non-empty list; using defaults"
-                )
-        else:
-            logger.warning(
-                "phrases.json loaded but content is not a recognized format; using defaults"
-            )
-except Exception as e:
-    logger.warning(f"Could not load phrases.json: {e}. Using defaults.")
-
-
-def is_greeting(text: str) -> bool:
-    if not text:
-        return False
-    q = text.lower()
-    return any(phrase in q for phrase in GREETING_PHRASES)
-
-
 def generate_response(
-    question: str, context_docs: list, conversation_history: list = None
+    question: str, context_docs: list, conversation_history: list | None = None
 ):
     """Generate a response using RAG - returns tuple (answer, used_context, needs_clarification, propose_ticket)."""
-
     conversation_history = conversation_history or []
 
     if not context_docs:
@@ -381,7 +428,6 @@ def generate_response(
             )
 
     context_parts = []
-
     for doc, score in relevant_docs[:3]:
         logger.info(f"Using document with score: {score}")
         category = doc.metadata.get("category", "unknown")
@@ -424,7 +470,7 @@ AKTUALNE PYTANIE: {clarified_question}
         response = llm.invoke(prompt)
         answer = response.content.strip()
 
-        # Filter out unwanted lines
+        # filtr niepożądanych linii (fragmenty zasad)
         lines = answer.split("\n")
         filtered_lines = []
         for line in lines:
@@ -528,12 +574,9 @@ def classify_category(question: str) -> str:
 
 
 def collect_student_data(conversation_history: list) -> dict:
-    """Extract student data from conversation history."""
+    """Extract student data from conversation history (placeholder)."""
     data = {"name": "", "surname": "", "email": "", "index_number": ""}
-    for msg in conversation_history:
-        text = msg.get("question", "").lower()
-        if "imię" in text or "imie" in text:
-            pass
+    # TODO: Można zaimplementować regexy do wyłuskiwania danych z historii.
     return data
 
 
@@ -541,7 +584,6 @@ def create_bos_ticket(
     question: str, conversation_history: list, student_data: dict
 ) -> dict:
     """Create a BOS ticket with full conversation and student data."""
-    # Build structured conversation array
     conversation_struct = []
     for msg in conversation_history:
         if msg.get("question"):
@@ -551,7 +593,7 @@ def create_bos_ticket(
 
     ticket = {
         "id": str(uuid.uuid4()),
-        "subject": "reklamacja oceny",  # For this use case, subject is fixed
+        "subject": "reklamacja oceny",  # możesz to zmapować dynamicznie, jeśli chcesz
         "student_details": {
             "name": student_data.get("name", ""),
             "surname": student_data.get("surname", ""),
@@ -568,7 +610,6 @@ def create_bos_ticket(
 
     try:
         if ticket_vector_store:
-            # Store a minimal page_content, but all structured data in metadata
             ticket_text = f"Ticket: {ticket['subject']}"
             ticket_vector_store.add_texts(
                 [ticket_text],
@@ -583,7 +624,7 @@ def create_bos_ticket(
                         "student_details": ticket["student_details"],
                         "conversation": ticket["conversation"],
                         "created_at": ticket["created_at"],
-                        # Add flat fields for easy search/filter
+                        # spłaszczone pola dla filtrów
                         "student_name": ticket["student_details"].get("name", ""),
                         "student_surname": ticket["student_details"].get("surname", ""),
                         "student_email": ticket["student_details"].get("email", ""),
@@ -603,6 +644,32 @@ def create_bos_ticket(
         f"Created BOS ticket {ticket['id']} with priority {ticket['priority']} and category {ticket['category']}"
     )
     return ticket
+
+
+# -----------------------------
+# FASTAPI APP
+# -----------------------------
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Starting Agent2 Ticket - initializing RAG system...")
+    initialize_vector_store(auto_index=AUTO_INDEX_ON_STARTUP)
+    logger.info("RAG system initialized successfully")
+    yield
+    logger.info("Shutting down Agent2 Ticket...")
+
+
+app = FastAPI(lifespan=lifespan)
+
+static_path = os.path.join(os.path.dirname(__file__), "static")
+app.mount("/static", StaticFiles(directory=static_path), name="static")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.post("/run")
@@ -633,18 +700,14 @@ async def run(payload: dict):
     state = conv["state"]
     student_data = conv["student_data"]
 
+    # Powitanie
     if is_greeting(question):
         assistant_name = behavior.get("assistant_name", "Asystent")
         assistant_role = behavior.get("assistant_role", "")
         intro = f"Cześć, jestem {assistant_name} - {assistant_role}. Jak mogę pomóc?"
-        conversation_history.append({"question": question, "response": intro})
-        return {
-            "response": intro,
-            "collection": COLLECTION,
-            "sources_found": 0,
-            "session_id": session_id,
-        }
+        return send_response(question, intro, session_id, conv, 0)
 
+    # Lista dokumentów
     doc_list_phrases = [
         "jakie masz dokumenty",
         "jakie dokumenty",
@@ -654,21 +717,25 @@ async def run(payload: dict):
     ]
     if any(phrase in question.lower() for phrase in doc_list_phrases):
         documents = []
-        for pattern in ["*.pdf", "*.txt"]:
-            files = glob.glob(os.path.join(DOCUMENTS_PATH, pattern))
-            documents.extend([os.path.basename(f) for f in files])
+        patterns = [
+            "**/*.pdf",
+            "**/*.txt",
+            "**/*.docx",
+            "**/*.doc",
+            "**/*.xlsx",
+            "**/*.xls",
+        ]
+        for pattern in patterns:
+            files = glob.glob(os.path.join(DOCUMENTS_PATH, pattern), recursive=True)
+            documents.extend([os.path.relpath(f, DOCUMENTS_PATH) for f in files])
 
-        doc_list = "\n".join([f"- {doc}" for doc in documents])
-        response = f"Mam dostęp do następujących dokumentów:\n{doc_list}"
-        conversation_history.append({"question": question, "response": response})
-        return {
-            "response": response,
-            "collection": COLLECTION,
-            "sources_found": len(documents),
-            "session_id": session_id,
-        }
+        doc_list = "\n".join([f"- {doc}" for doc in sorted(documents)])
+        response = "Mam dostęp do następujących dokumentów:\n" + (
+            doc_list if doc_list else "- (brak)"
+        )
+        return send_response(question, response, session_id, conv, len(documents))
 
-    # Only show previous tickets if explicitly asked
+    # Pokaż zgłoszenia (tylko na wyraźną prośbę)
     show_ticket_phrases = [
         "pokaż zgłoszenie",
         "pokaz zgłoszenie",
@@ -699,78 +766,51 @@ async def run(payload: dict):
                 response = f"Znaleziono zgłoszenie: {ticket_text[:500]}..."
         else:
             response = "Nie znalazłem żadnego zgłoszenia."
-        conversation_history.append({"question": question, "response": response})
-        return {
-            "response": response,
-            "collection": COLLECTION,
-            "sources_found": len(ticket_results) if ticket_results else 0,
-            "session_id": session_id,
-        }
+        return send_response(
+            question,
+            response,
+            session_id,
+            conv,
+            len(ticket_results) if ticket_results else 0,
+        )
 
-    # If user requests a ticket, always start new ticket flow
+    # Użytkownik prosi o utworzenie zgłoszenia -> zawsze start nowego flow
     if user_requests_ticket(question):
-        conv["state"] = "collecting_name"
-        response = "Świetnie, utworzę zgłoszenie. Proszę podaj swoje imię."
-        conversation_history.append({"question": question, "response": response})
-        return {
-            "response": response,
-            "collection": COLLECTION,
-            "sources_found": 0,
-            "session_id": session_id,
-        }
+        response = start_ticket_flow(conv, mode="collecting_name")
+        return send_response(question, response, session_id, conv, 0)
 
+    # Kontekst RAG
     context_docs = search_documents(question, k=5)
 
+    # Obsługa stanu: oczekiwanie na potwierdzenie założenia ticketu
     if state == "awaiting_ticket_confirmation":
-        if "tak" in question.lower() or "zgoda" in question.lower():
-            conv["state"] = "collecting_data"
-            response = "Świetnie, utworzę zgłoszenie. Proszę podaj swoje dane: imię, nazwisko, email i numer indeksu."
-            conversation_history.append({"question": question, "response": response})
-            return {
-                "response": response,
-                "collection": COLLECTION,
-                "sources_found": len(context_docs),
-                "session_id": session_id,
-            }
-        else:
+        if is_negative_response(question):
             conv["state"] = "normal"
-            response = "Rozumiem. Czy mogę pomóc w czymś innym?"
-            conversation_history.append({"question": question, "response": response})
-            return {
-                "response": response,
-                "collection": COLLECTION,
-                "sources_found": len(context_docs),
-                "session_id": session_id,
-            }
+            response = (
+                "Nie utworzono zgłoszenia. Jeśli będziesz potrzebować pomocy, daj znać."
+            )
+            return send_response(
+                question, response, session_id, conv, len(context_docs)
+            )
 
-    if state == "awaiting_ticket_confirmation":
+        ql = question.lower()
         if (
-            "tak" in question.lower()
-            or "zgoda" in question.lower()
-            or "utwórz" in question.lower()
-            or "nowe" in question.lower()
+            any(keyword in ql for keyword in ["utwórz", "utworz", "nowe", "nowy"])
+            or "tak" in ql
+            or "zgoda" in ql
         ):
-            conv["state"] = "collecting_name"
-            response = "Świetnie, utworzę zgłoszenie. Proszę podaj swoje imię."
-            conversation_history.append({"question": question, "response": response})
-            return {
-                "response": response,
-                "collection": COLLECTION,
-                "sources_found": len(context_docs),
-                "session_id": session_id,
-            }
-        else:
-            conv["state"] = "normal"
-            response = "Rozumiem. Czy mogę pomóc w czymś innym?"
-            conversation_history.append({"question": question, "response": response})
-            return {
-                "response": response,
-                "collection": COLLECTION,
-                "sources_found": len(context_docs),
-                "session_id": session_id,
-            }
+            response = start_ticket_flow(conv, mode="collecting_name")
+            return send_response(
+                question, response, session_id, conv, len(context_docs)
+            )
 
-    elif state in [
+        # Fallback
+        conv["state"] = "normal"
+        response = "Rozumiem. Czy mogę pomóc w czymś innym?"
+        return send_response(question, response, session_id, conv, len(context_docs))
+
+    # Obsługa stanów zbierania danych do ticketu
+    if state in [
         "collecting_name",
         "collecting_surname",
         "collecting_email",
@@ -790,7 +830,10 @@ async def run(payload: dict):
             response = "Proszę podaj swój numer indeksu."
         elif state == "collecting_index":
             student_data["index_number"] = question.strip()
-            if all(student_data.values()):
+            if all(
+                student_data.get(k, "").strip()
+                for k in ["name", "surname", "email", "index_number"]
+            ):
                 ticket = create_bos_ticket(question, conversation_history, student_data)
                 ticket_msg = (
                     f"Utworzyłem zgłoszenie do BOS.\n"
@@ -801,27 +844,21 @@ async def run(payload: dict):
                     f"Pełna rozmowa została zapisana w zgłoszeniu."
                 )
                 conv["state"] = "normal"
-                conversation_history.append(
-                    {"question": question, "response": ticket_msg}
+                return send_response(
+                    question,
+                    ticket_msg,
+                    session_id,
+                    conv,
+                    len(context_docs),
+                    extra={"ticket": ticket},
                 )
-                return {
-                    "response": ticket_msg,
-                    "collection": COLLECTION,
-                    "sources_found": len(context_docs),
-                    "session_id": session_id,
-                    "ticket": ticket,
-                }
             else:
                 response = "Brakuje danych. Spróbuj ponownie od początku."
                 conv["state"] = "normal"
-        conversation_history.append({"question": question, "response": response})
-        return {
-            "response": response,
-            "collection": COLLECTION,
-            "sources_found": len(context_docs),
-            "session_id": session_id,
-        }
 
+        return send_response(question, response, session_id, conv, len(context_docs))
+
+    # Generowanie odpowiedzi RAG
     response, used_context, needs_clarification, propose_ticket = generate_response(
         question, context_docs, conversation_history
     )
@@ -852,12 +889,14 @@ async def chat(payload: dict):
 @app.get("/health")
 async def health():
     """Health check endpoint."""
+    vector_ready = vector_store is not None
+    ticket_ready = ticket_vector_store is not None
     return {
         "status": "healthy",
         "document_collection": COLLECTION,
         "ticket_collection": TICKET_COLLECTION,
-        "vector_store_ready": vector_store is not None,
-        "ticket_vector_store_ready": ticket_vector_store is not None,
+        "vector_store_ready": vector_ready,
+        "ticket_vector_store_ready": ticket_ready,
     }
 
 
@@ -893,8 +932,20 @@ async def reload_documents():
 async def list_documents():
     """List all documents in the documents folder."""
     documents = []
-    for pattern in ["*.pdf", "*.txt"]:
-        files = glob.glob(os.path.join(DOCUMENTS_PATH, pattern))
-        documents.extend([os.path.basename(f) for f in files])
+    patterns = [
+        "**/*.pdf",
+        "**/*.txt",
+        "**/*.docx",
+        "**/*.doc",
+        "**/*.xlsx",
+        "**/*.xls",
+    ]
+    for pattern in patterns:
+        files = glob.glob(os.path.join(DOCUMENTS_PATH, pattern), recursive=True)
+        documents.extend([os.path.relpath(f, DOCUMENTS_PATH) for f in files])
 
-    return {"documents": documents, "count": len(documents), "path": DOCUMENTS_PATH}
+    return {
+        "documents": sorted(documents),
+        "count": len(documents),
+        "path": DOCUMENTS_PATH,
+    }
