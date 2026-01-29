@@ -722,28 +722,6 @@ async def run(payload: dict):
     context_docs = search_documents(question, k=5)
 
     if state == "awaiting_ticket_confirmation":
-        if "tak" in question.lower() or "zgoda" in question.lower():
-            conv["state"] = "collecting_data"
-            response = "Świetnie, utworzę zgłoszenie. Proszę podaj swoje dane: imię, nazwisko, email i numer indeksu."
-            conversation_history.append({"question": question, "response": response})
-            return {
-                "response": response,
-                "collection": COLLECTION,
-                "sources_found": len(context_docs),
-                "session_id": session_id,
-            }
-        else:
-            conv["state"] = "normal"
-            response = "Rozumiem. Czy mogę pomóc w czymś innym?"
-            conversation_history.append({"question": question, "response": response})
-            return {
-                "response": response,
-                "collection": COLLECTION,
-                "sources_found": len(context_docs),
-                "session_id": session_id,
-            }
-
-    if state == "awaiting_ticket_confirmation":
         if (
             "tak" in question.lower()
             or "zgoda" in question.lower()
