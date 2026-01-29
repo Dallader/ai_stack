@@ -11,7 +11,12 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from langchain_community.chat_models import ChatOllama
 from langchain_ollama import OllamaEmbeddings
-from langchain_community.document_loaders import PyPDFLoader, TextLoader
+from langchain_community.document_loaders import (
+    PyPDFLoader,
+    TextLoader,
+    UnstructuredWordDocumentLoader,
+    UnstructuredExcelLoader,
+)
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
@@ -21,15 +26,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 COLLECTION = os.getenv("COLLECTION", "agent2_tickets")
+TICKET_COLLECTION = os.getenv("TICKET_COLLECTION", "tickets")
 QDRANT_HOST = os.getenv("QDRANT_HOST", "qdrant")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", "6333"))
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
 DOCUMENTS_PATH = os.getenv("DOCUMENTS_PATH", "/app/documents")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "mxbai-embed-large")
-LLM_MODEL = os.getenv("LLM_MODEL", "llama3.2:1b")
+LLM_MODEL = os.getenv("LLM_MODEL", "llama3.1:latest")
 EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "1024"))
 LLM_NUM_PREDICT = int(os.getenv("LLM_NUM_PREDICT", "512"))
-FORCE_RECREATE_COLLECTION = os.getenv("FORCE_RECREATE_COLLECTION", "false").lower() == "true"
+FORCE_RECREATE_COLLECTION = (
+    os.getenv("FORCE_RECREATE_COLLECTION", "false").lower() == "true"
+)
 TICKET_STORE_PATH = os.getenv("TICKET_STORE_PATH", "/app/tickets.json")
 AUTO_INDEX_ON_STARTUP = os.getenv("AUTO_INDEX_ON_STARTUP", "false").lower() == "true"
 
@@ -44,9 +52,14 @@ llm = ChatOllama(
 embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL, base_url=OLLAMA_BASE_URL)
 qdrant_client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 vector_store = None
+ticket_vector_store = None
+
+conversations = {}
 
 prompt_config = {}
-PROMPT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "settings", "prompt_config.json")
+PROMPT_CONFIG_PATH = os.path.join(
+    os.path.dirname(__file__), "settings", "prompt_config.json"
+)
 try:
     with open(PROMPT_CONFIG_PATH, "r", encoding="utf-8") as f:
         prompt_config = json.load(f)
@@ -61,12 +74,13 @@ except Exception as e:
         "clarification_prefix": "PYTANIE STUDENTA:",
         "no_context_response": "Nie znalazłem informacji.",
         "no_relevant_docs_response": "Nie znalazłem informacji.",
-        "error_response": "Przepraszam, wystąpił błąd."
+        "error_response": "Przepraszam, wystąpił błąd.",
     }
 
-# Load behavior config (assistant name / role)
 behavior = {}
-BEHAVIOR_CONFIG_PATH = os.path.join(os.path.dirname(__file__), "settings", "behavior.json")
+BEHAVIOR_CONFIG_PATH = os.path.join(
+    os.path.dirname(__file__), "settings", "behavior.json"
+)
 try:
     with open(BEHAVIOR_CONFIG_PATH, "r", encoding="utf-8") as f:
         behavior = json.load(f)
@@ -76,46 +90,58 @@ except Exception as e:
     behavior = {
         "assistant_name": "Asystent WSB Merito",
         "assistant_role": "helper dla studentów WSB Merito",
-        "language": prompt_config.get("language", "pl")
+        "language": prompt_config.get("language", "pl"),
     }
 
 
 def load_documents_from_folder(folder_path: str):
-    """Load all supported documents from a folder."""
+    """Load all supported documents from a folder and subfolders, adding category metadata."""
     documents = []
-    
+
     patterns = {
-        "*.pdf": PyPDFLoader,
-        "*.txt": TextLoader,
+        "**/*.pdf": PyPDFLoader,
+        "**/*.txt": TextLoader,
+        "**/*.docx": UnstructuredWordDocumentLoader,
+        "**/*.doc": UnstructuredWordDocumentLoader,
+        "**/*.xlsx": UnstructuredExcelLoader,
+        "**/*.xls": UnstructuredExcelLoader,
     }
-    
+
     for pattern, loader_class in patterns.items():
-        file_paths = glob.glob(os.path.join(folder_path, pattern))
+        file_paths = glob.glob(os.path.join(folder_path, pattern), recursive=True)
         for file_path in file_paths:
             try:
                 logger.info(f"Loading document: {file_path}")
                 loader = loader_class(file_path)
                 docs = loader.load()
 
+                # Determine category from relative path
+                rel_path = os.path.relpath(file_path, folder_path)
+                category = os.path.dirname(rel_path)
+                if not category or category == ".":
+                    category = "general"
+
                 for doc in docs:
                     doc.metadata["source_file"] = os.path.basename(file_path)
+                    doc.metadata["category"] = category
                 documents.extend(docs)
-                logger.info(f"Successfully loaded {len(docs)} pages from {file_path}")
+                logger.info(
+                    f"Successfully loaded {len(docs)} pages from {file_path} in category {category}"
+                )
             except Exception as e:
                 logger.error(f"Error loading {file_path}: {e}")
-    
+
     return documents
 
 
 def initialize_vector_store(auto_index: bool = False):
-    """Initialize Qdrant vector store. If `auto_index` is True, load and index documents when collection is missing.
-
-    By default (auto_index=False) the function will create/connect an empty collection and will NOT index
-    documents. Use `/reload-documents` to explicitly trigger indexing.
-    """
-    global vector_store
+    """Initialize Qdrant vector stores for documents and tickets."""
+    global vector_store, ticket_vector_store
 
     try:
+        collections = qdrant_client.get_collections().collections
+        collection_names = [c.name for c in collections]
+
         if FORCE_RECREATE_COLLECTION and auto_index:
             try:
                 qdrant_client.delete_collection(COLLECTION)
@@ -123,14 +149,13 @@ def initialize_vector_store(auto_index: bool = False):
             except Exception as e:
                 logger.warning(f"Force delete collection failed or not present: {e}")
 
-        collections = qdrant_client.get_collections().collections
-        collection_exists = any(c.name == COLLECTION for c in collections)
-
-        if not collection_exists:
+        if COLLECTION not in collection_names:
             logger.info(f"Creating new collection: {COLLECTION}")
             qdrant_client.create_collection(
                 collection_name=COLLECTION,
-                vectors_config=VectorParams(size=EMBEDDING_DIM, distance=Distance.COSINE),
+                vectors_config=VectorParams(
+                    size=EMBEDDING_DIM, distance=Distance.COSINE
+                ),
             )
 
             if auto_index:
@@ -178,8 +203,34 @@ def initialize_vector_store(auto_index: bool = False):
             collection_info = qdrant_client.get_collection(COLLECTION)
             logger.info(f"Collection has {collection_info.points_count} vectors")
 
+        if TICKET_COLLECTION not in collection_names:
+            logger.info(f"Creating new ticket collection: {TICKET_COLLECTION}")
+            qdrant_client.create_collection(
+                collection_name=TICKET_COLLECTION,
+                vectors_config=VectorParams(
+                    size=EMBEDDING_DIM, distance=Distance.COSINE
+                ),
+            )
+            ticket_vector_store = QdrantVectorStore(
+                client=qdrant_client,
+                collection_name=TICKET_COLLECTION,
+                embedding=embeddings,
+            )
+        else:
+            logger.info(
+                f"Ticket collection {TICKET_COLLECTION} already exists, connecting..."
+            )
+            ticket_vector_store = QdrantVectorStore(
+                client=qdrant_client,
+                collection_name=TICKET_COLLECTION,
+                embedding=embeddings,
+            )
+
+            collection_info = qdrant_client.get_collection(TICKET_COLLECTION)
+            logger.info(f"Ticket collection has {collection_info.points_count} vectors")
+
     except Exception as e:
-        logger.error(f"Error initializing vector store: {e}")
+        logger.error(f"Error initializing vector stores: {e}")
         raise
 
 
@@ -208,17 +259,35 @@ app.add_middleware(
 
 
 def search_documents(query: str, k: int = 3):
-    """Search for relevant documents in Qdrant."""
-    if vector_store is None:
-        return []
-    
-    try:
-        results = vector_store.similarity_search_with_score(query, k=k)
-        logger.info(f"Found {len(results)} results for query")
-        return results
-    except Exception as e:
-        logger.error(f"Error searching documents: {e}")
-        return []
+    """Search for relevant documents and tickets in Qdrant."""
+    all_results = []
+
+    if vector_store is not None:
+        try:
+            doc_results = vector_store.similarity_search_with_score(query, k=k)
+            for doc, score in doc_results:
+                doc.metadata["source"] = "documents"
+            all_results.extend(doc_results)
+            logger.info(f"Found {len(doc_results)} document results for query")
+        except Exception as e:
+            logger.error(f"Error searching documents: {e}")
+
+    if ticket_vector_store is not None:
+        try:
+            ticket_results = ticket_vector_store.similarity_search_with_score(
+                query, k=k
+            )
+            for doc, score in ticket_results:
+                doc.metadata["source"] = "tickets"
+            all_results.extend(ticket_results)
+            logger.info(f"Found {len(ticket_results)} ticket results for query")
+        except Exception as e:
+            logger.error(f"Error searching tickets: {e}")
+
+    all_results.sort(key=lambda x: x[1])
+
+    return all_results[:k]
+
 
 PHRASES_PATH = os.path.join(os.path.dirname(__file__), "settings", "phrases.json")
 try:
@@ -231,13 +300,20 @@ try:
             gp = loaded.get("greeting_phrases")
             if isinstance(gp, list) and gp:
                 GREETING_PHRASES = gp
-                logger.info("Loaded greeting phrases from phrases.json (greeting_phrases)")
+                logger.info(
+                    "Loaded greeting phrases from phrases.json (greeting_phrases)"
+                )
             else:
-                logger.warning("phrases.json.greeting_phrases is present but not a non-empty list; using defaults")
+                logger.warning(
+                    "phrases.json.greeting_phrases is present but not a non-empty list; using defaults"
+                )
         else:
-            logger.warning("phrases.json loaded but content is not a recognized format; using defaults")
+            logger.warning(
+                "phrases.json loaded but content is not a recognized format; using defaults"
+            )
 except Exception as e:
     logger.warning(f"Could not load phrases.json: {e}. Using defaults.")
+
 
 def is_greeting(text: str) -> bool:
     if not text:
@@ -246,71 +322,170 @@ def is_greeting(text: str) -> bool:
     return any(phrase in q for phrase in GREETING_PHRASES)
 
 
-def generate_response(question: str, context_docs: list):
-    """Generate a response using RAG - returns tuple (answer, used_context)."""
-    
+def generate_response(
+    question: str, context_docs: list, conversation_history: list = None
+):
+    """Generate a response using RAG - returns tuple (answer, used_context, needs_clarification, propose_ticket)."""
+
+    conversation_history = conversation_history or []
+
     if not context_docs:
-        return prompt_config.get("no_context_response", "Nie znalazłem informacji na ten temat w dokumentach."), False
-    
+        return (
+            prompt_config.get(
+                "no_context_response",
+                "Nie znalazłem informacji na ten temat w dokumentach.",
+            ),
+            False,
+            True,
+            False,
+        )
+
     clarified_question = question
     student_phrases = prompt_config.get("student_deadline_phrases", ["ile mam"])
     if any(phrase in question.lower() for phrase in student_phrases):
-        clarification_prefix = prompt_config.get("clarification_prefix", "PYTANIE STUDENTA:")
+        clarification_prefix = prompt_config.get(
+            "clarification_prefix", "PYTANIE STUDENTA:"
+        )
         clarified_question = f"{clarification_prefix} {question}"
-        logger.info(f"Clarified question as student deadline query: {clarified_question}")
-    
+        logger.info(
+            f"Clarified question as student deadline query: {clarified_question}"
+        )
+
     for doc, score in context_docs:
-        logger.info(f"Document score: {score}, source: {doc.metadata.get('source_file', 'unknown')}")
-    
-    relevant_docs = [(doc, score) for doc, score in context_docs if score < 0.8]
-    
+        logger.info(
+            f"Document score: {score}, source: {doc.metadata.get('source_file', 'unknown')}"
+        )
+
+    relevant_docs = [(doc, score) for doc, score in context_docs if score < 0.9]
+
     if not relevant_docs:
         logger.info(f"No relevant documents found (best score: {context_docs[0][1]})")
-        return prompt_config.get("no_relevant_docs_response", "Nie znalazłem wystarczająco trafnych informacji w dokumentach."), False
-    
+        if len(conversation_history) > 2:
+            return (
+                prompt_config.get(
+                    "propose_ticket",
+                    "Nie mogę znaleźć odpowiedzi. Czy chcesz zgłoszenie do BOS?",
+                ),
+                False,
+                False,
+                True,
+            )
+        else:
+            return (
+                prompt_config.get(
+                    "ask_for_details", "Czy możesz podać więcej szczegółów?"
+                ),
+                False,
+                True,
+                False,
+            )
+
     context_parts = []
-    
+
     for doc, score in relevant_docs[:3]:
         logger.info(f"Using document with score: {score}")
-        context_parts.append(doc.page_content)
-    
+        category = doc.metadata.get("category", "unknown")
+        context_parts.append(f"Kategoria: {category}\n{doc.page_content}")
+
     context = "\n\n".join(context_parts)
+
+    history_text = ""
+    if conversation_history:
+        history_text = (
+            "HISTORIA ROZMOWY:\n"
+            + "\n".join(
+                [
+                    f"Student: {msg['question']}\nAsystent: {msg['response']}"
+                    for msg in conversation_history[-4:]
+                ]
+            )
+            + "\n\n"
+        )
 
     system_instruction = prompt_config.get("system_instruction", "Jesteś asystentem.")
     critical_rules = prompt_config.get("critical_rules", [])
     response_instruction = prompt_config.get("response_instruction", "ODPOWIEDŹ:")
-    
+
     rules_text = "\n".join([f"{i+1}. {rule}" for i, rule in enumerate(critical_rules)])
-    
+
     prompt = f"""{system_instruction}
 
-KONTEKST Z DOKUMENTÓW:
+{history_text}KONTEKST Z DOKUMENTÓW:
 {context}
 
-{clarified_question}
-
-KRYTYCZNE ZASADY - CZYTAJ UWAŻNIE:
-{rules_text}
+AKTUALNE PYTANIE: {clarified_question}
 
 {response_instruction}"""
-    
+
+    if rules_text:
+        prompt += f"\n\nKRYTYCZNE ZASADY - CZYTAJ UWAŻNIE:\n{rules_text}"
+
     try:
         response = llm.invoke(prompt)
         answer = response.content.strip()
-        
-        return answer, True
+
+        # Filter out unwanted lines
+        lines = answer.split("\n")
+        filtered_lines = []
+        for line in lines:
+            line_lower = line.lower()
+            if not any(
+                forbidden in line_lower
+                for forbidden in [
+                    "zasady",
+                    "student (nie uczelnia)",
+                    "krytyczne zasady",
+                    "nie ujawniaj",
+                ]
+            ):
+                filtered_lines.append(line)
+        answer = "\n".join(filtered_lines).strip()
+
+        needs_clarification = any(
+            phrase in answer.lower()
+            for phrase in [
+                "więcej szczegółów",
+                "więcej informacji",
+                "dokładniej",
+                "konkretniej",
+            ]
+        )
+        propose_ticket = any(
+            phrase in answer.lower()
+            for phrase in ["zgłoszenie", "bos", "biuro obsługi", "nie mogę pomóc"]
+        )
+
+        return answer, True, needs_clarification, propose_ticket
     except Exception as e:
         logger.error(f"Error generating response: {e}")
-        return prompt_config.get("error_response", "Przepraszam, wystąpił błąd podczas generowania odpowiedzi."), False
+        return (
+            prompt_config.get(
+                "error_response",
+                "Przepraszam, wystąpił błąd podczas generowania odpowiedzi.",
+            ),
+            False,
+            False,
+            False,
+        )
 
 
 def user_requests_ticket(question: str) -> bool:
     """Detect whether the user explicitly wants to create a BOS ticket."""
     q = question.lower()
     ticket_phrases = [
-        "utwórz zgłoszenie", "zrób zgłoszenie", "złóż zgłoszenie", "otwórz zgłoszenie",
-        "ticket", "zgłoszenie", "przekaż do bos", "do bos", "biuro obsługi studenta",
-        "biuro obsługi", "bos", "bosu", "wyślij zgłoszenie"
+        "utwórz zgłoszenie",
+        "zrób zgłoszenie",
+        "złóż zgłoszenie",
+        "otwórz zgłoszenie",
+        "ticket",
+        "zgłoszenie",
+        "przekaż do bos",
+        "do bos",
+        "biuro obsługi studenta",
+        "biuro obsługi",
+        "bos",
+        "bosu",
+        "wyślij zgłoszenie",
     ]
     return any(phrase in q for phrase in ticket_phrases)
 
@@ -318,7 +493,16 @@ def user_requests_ticket(question: str) -> bool:
 def classify_priority(question: str) -> str:
     """Heuristic priority classifier for tickets."""
     q = question.lower()
-    high_signals = ["pilne", "asap", "natychmiast", "nie działa", "błąd", "blokada", "deadline", "termin"]
+    high_signals = [
+        "pilne",
+        "asap",
+        "natychmiast",
+        "nie działa",
+        "błąd",
+        "blokada",
+        "deadline",
+        "termin",
+    ]
     medium_signals = ["problem", "issue", "opóźnienie", "zwłoka"]
     if any(sig in q for sig in high_signals):
         return "high"
@@ -335,7 +519,7 @@ def classify_category(question: str) -> str:
         "it_access": ["logowanie", "hasło", "dostęp", "konto", "loguj"],
         "documents": ["zaświadczenie", "dokument", "podanie", "wniosek"],
         "schedule": ["plan", "zajęć", "terminarz", "harmonogram"],
-        "general": []
+        "general": [],
     }
     for cat, keywords in categories.items():
         if any(word in q for word in keywords):
@@ -343,31 +527,60 @@ def classify_category(question: str) -> str:
     return "general"
 
 
-def create_ticket(question: str) -> dict:
-    """Create a simple BOS ticket and persist it locally."""
+def collect_student_data(conversation_history: list) -> dict:
+    """Extract student data from conversation history."""
+    data = {"name": "", "surname": "", "email": "", "index_number": ""}
+    for msg in conversation_history:
+        text = msg.get("question", "").lower()
+        if "imię" in text or "imie" in text:
+            pass
+    return data
+
+
+def create_bos_ticket(
+    question: str, conversation_history: list, student_data: dict
+) -> dict:
+    """Create a BOS ticket with full conversation and student data."""
+    full_conversation = "\n".join(
+        [
+            f"Student: {msg['question']}\nAsystent: {msg['response']}"
+            for msg in conversation_history
+        ]
+    )
     ticket = {
         "id": str(uuid.uuid4()),
         "description": question,
+        "full_conversation": full_conversation,
+        "student_data": student_data,
         "priority": classify_priority(question),
         "category": classify_category(question),
         "status": "new",
         "source": "agent2_ticket",
         "created_at": datetime.utcnow().isoformat() + "Z",
     }
+
     try:
-        if os.path.exists(TICKET_STORE_PATH):
-            with open(TICKET_STORE_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if not isinstance(data, list):
-                    data = []
-        else:
-            data = []
-        data.append(ticket)
-        with open(TICKET_STORE_PATH, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        logger.info(f"Created BOS ticket {ticket['id']} with priority {ticket['priority']} and category {ticket['category']}")
+        if ticket_vector_store:
+            ticket_text = f"Zgłoszenie BOS ID: {ticket['id']}\nOpis: {ticket['description']}\nRozmowa: {ticket['full_conversation']}\nDane studenta: {json.dumps(ticket['student_data'], ensure_ascii=False)}\nPriorytet: {ticket['priority']}\nKategoria: {ticket['category']}\nStatus: {ticket['status']}"
+            ticket_vector_store.add_texts(
+                [ticket_text],
+                metadatas=[
+                    {
+                        "type": "ticket",
+                        "ticket_id": ticket["id"],
+                        "status": ticket["status"],
+                        "priority": ticket["priority"],
+                        "category": ticket["category"],
+                    }
+                ],
+            )
+            logger.info(f"Saved ticket {ticket['id']} to Qdrant ticket collection")
     except Exception as e:
-        logger.error(f"Failed to persist ticket: {e}")
+        logger.error(f"Failed to save ticket to Qdrant: {e}")
+
+    logger.info(
+        f"Created BOS ticket {ticket['id']} with priority {ticket['priority']} and category {ticket['category']}"
+    )
     return ticket
 
 
@@ -375,61 +588,228 @@ def create_ticket(question: str) -> dict:
 async def run(payload: dict):
     """Main endpoint for processing student questions."""
     question = payload.get("input", "")
-    
+    session_id = payload.get("session_id", str(uuid.uuid4()))
+
     if not question.strip():
         return {
             "response": "Proszę zadaj pytanie.",
             "collection": COLLECTION,
-            "sources_found": 0
+            "sources_found": 0,
+            "session_id": session_id,
         }
-    
-    logger.info(f"Received question: {question}")
-    # If the user only greets, reply with a short assistant introduction
+
+    logger.info(f"Received question: {question} for session {session_id}")
+
+    if session_id not in conversations:
+        conversations[session_id] = {
+            "history": [],
+            "state": "normal",
+            "student_data": {},
+        }
+
+    conv = conversations[session_id]
+    conversation_history = conv["history"]
+    state = conv["state"]
+    student_data = conv["student_data"]
+
     if is_greeting(question):
         assistant_name = behavior.get("assistant_name", "Asystent")
         assistant_role = behavior.get("assistant_role", "")
         intro = f"Cześć, jestem {assistant_name} - {assistant_role}. Jak mogę pomóc?"
+        conversation_history.append({"question": question, "response": intro})
         return {
             "response": intro,
             "collection": COLLECTION,
-            "sources_found": 0
+            "sources_found": 0,
+            "session_id": session_id,
         }
-    
-    # Handle meta-questions about documents
-    doc_list_phrases = ["jakie masz dokumenty", "jakie dokumenty", "lista dokumentów", "pokaż dokumenty", "what documents"]
+
+    doc_list_phrases = [
+        "jakie masz dokumenty",
+        "jakie dokumenty",
+        "lista dokumentów",
+        "pokaż dokumenty",
+        "what documents",
+    ]
     if any(phrase in question.lower() for phrase in doc_list_phrases):
         documents = []
         for pattern in ["*.pdf", "*.txt"]:
             files = glob.glob(os.path.join(DOCUMENTS_PATH, pattern))
             documents.extend([os.path.basename(f) for f in files])
-        
+
         doc_list = "\n".join([f"- {doc}" for doc in documents])
+        response = f"Mam dostęp do następujących dokumentów:\n{doc_list}"
+        conversation_history.append({"question": question, "response": response})
         return {
-            "response": f"Mam dostęp do następujących dokumentów:\n{doc_list}",
+            "response": response,
             "collection": COLLECTION,
-            "sources_found": len(documents)
+            "sources_found": len(documents),
+            "session_id": session_id,
         }
-    
-    context_docs = search_documents(question, k=5)
-    
-    response, used_context = generate_response(question, context_docs)
-    if (not used_context) and user_requests_ticket(question):
-        ticket = create_ticket(question)
-        ticket_msg = (
-            "Nie znalazłem dokładnej odpowiedzi, więc utworzyłem zgłoszenie do BOS. "
-            f"ID: {ticket['id']}, kategoria: {ticket['category']}, priorytet: {ticket['priority']}."
-        )
+
+    # Handle requests to show tickets
+    show_ticket_phrases = [
+        "pokaz zgłoszenie",
+        "pokaż zgłoszenie",
+        "zgłoszenie",
+        "ticket",
+        "ostatnie zgłoszenie",
+    ]
+    if any(phrase in question.lower() for phrase in show_ticket_phrases):
+        # Search for relevant tickets in Qdrant
+        ticket_results = []
+        if ticket_vector_store is not None:
+            try:
+                ticket_results = ticket_vector_store.similarity_search_with_score(
+                    question, k=3
+                )
+            except Exception as e:
+                logger.error(f"Error searching tickets: {e}")
+
+        if ticket_results and ticket_results[0][1] < 0.8:  # If relevant ticket found
+            ticket_doc = ticket_results[0][0]
+            ticket_text = ticket_doc.page_content
+            # Extract the response from the ticket conversation
+            lines = ticket_text.split("\n")
+            assistant_responses = [
+                line for line in lines if line.startswith("Asystent:")
+            ]
+            if assistant_responses:
+                response = f"Znaleziono podobne zgłoszenie. Odpowiedź: {assistant_responses[-1].replace('Asystent: ', '')}"
+            else:
+                response = f"Znaleziono zgłoszenie: {ticket_text[:500]}..."
+        else:
+            response = "Nie znalazłem żadnego zgłoszenia w tej rozmowie. Czy chcesz utworzyć nowe zgłoszenie?"
+            conv["state"] = "awaiting_ticket_confirmation"
+        conversation_history.append({"question": question, "response": response})
         return {
-            "response": ticket_msg,
+            "response": response,
+            "collection": COLLECTION,
+            "sources_found": len(ticket_results) if ticket_results else 0,
+            "session_id": session_id,
+        }
+
+    context_docs = search_documents(question, k=5)
+
+    if state == "awaiting_ticket_confirmation":
+        if "tak" in question.lower() or "zgoda" in question.lower():
+            conv["state"] = "collecting_data"
+            response = "Świetnie, utworzę zgłoszenie. Proszę podaj swoje dane: imię, nazwisko, email i numer indeksu."
+            conversation_history.append({"question": question, "response": response})
+            return {
+                "response": response,
+                "collection": COLLECTION,
+                "sources_found": len(context_docs),
+                "session_id": session_id,
+            }
+        else:
+            conv["state"] = "normal"
+            response = "Rozumiem. Czy mogę pomóc w czymś innym?"
+            conversation_history.append({"question": question, "response": response})
+            return {
+                "response": response,
+                "collection": COLLECTION,
+                "sources_found": len(context_docs),
+                "session_id": session_id,
+            }
+
+    if state == "awaiting_ticket_confirmation":
+        if (
+            "tak" in question.lower()
+            or "zgoda" in question.lower()
+            or "utwórz" in question.lower()
+            or "nowe" in question.lower()
+        ):
+            conv["state"] = "collecting_name"
+            response = "Świetnie, utworzę zgłoszenie. Proszę podaj swoje imię."
+            conversation_history.append({"question": question, "response": response})
+            return {
+                "response": response,
+                "collection": COLLECTION,
+                "sources_found": len(context_docs),
+                "session_id": session_id,
+            }
+        else:
+            conv["state"] = "normal"
+            response = "Rozumiem. Czy mogę pomóc w czymś innym?"
+            conversation_history.append({"question": question, "response": response})
+            return {
+                "response": response,
+                "collection": COLLECTION,
+                "sources_found": len(context_docs),
+                "session_id": session_id,
+            }
+
+    elif state in [
+        "collecting_name",
+        "collecting_surname",
+        "collecting_email",
+        "collecting_index",
+    ]:
+        if state == "collecting_name":
+            student_data["name"] = question.strip()
+            conv["state"] = "collecting_surname"
+            response = "Proszę podaj swoje nazwisko."
+        elif state == "collecting_surname":
+            student_data["surname"] = question.strip()
+            conv["state"] = "collecting_email"
+            response = "Proszę podaj swój email."
+        elif state == "collecting_email":
+            student_data["email"] = question.strip()
+            conv["state"] = "collecting_index"
+            response = "Proszę podaj swój numer indeksu."
+        elif state == "collecting_index":
+            student_data["index_number"] = question.strip()
+            if all(student_data.values()):
+                ticket = create_bos_ticket(question, conversation_history, student_data)
+                ticket_msg = (
+                    f"Utworzyłem zgłoszenie do BOS.\n"
+                    f"ID: {ticket['id']}\n"
+                    f"Kategoria: {ticket['category']}\n"
+                    f"Priorytet: {ticket['priority']}\n"
+                    f"Dane studenta: {student_data}\n"
+                    f"Pełna rozmowa została zapisana w zgłoszeniu."
+                )
+                conv["state"] = "normal"
+                conversation_history.append(
+                    {"question": question, "response": ticket_msg}
+                )
+                return {
+                    "response": ticket_msg,
+                    "collection": COLLECTION,
+                    "sources_found": len(context_docs),
+                    "session_id": session_id,
+                    "ticket": ticket,
+                }
+            else:
+                response = "Brakuje danych. Spróbuj ponownie od początku."
+                conv["state"] = "normal"
+        conversation_history.append({"question": question, "response": response})
+        return {
+            "response": response,
             "collection": COLLECTION,
             "sources_found": len(context_docs),
-            "ticket": ticket,
+            "session_id": session_id,
         }
-    
+
+    response, used_context, needs_clarification, propose_ticket = generate_response(
+        question, context_docs, conversation_history
+    )
+
+    if propose_ticket:
+        conv["state"] = "awaiting_ticket_confirmation"
+        response = prompt_config.get(
+            "propose_ticket",
+            "Nie mogę znaleźć odpowiedzi. Czy chcesz zgłoszenie do BOS?",
+        )
+
+    conversation_history.append({"question": question, "response": response})
+
     return {
         "response": response,
         "collection": COLLECTION,
-        "sources_found": len(context_docs)
+        "sources_found": len(context_docs),
+        "session_id": session_id,
     }
 
 
@@ -444,8 +824,10 @@ async def health():
     """Health check endpoint."""
     return {
         "status": "healthy",
-        "collection": COLLECTION,
-        "vector_store_ready": vector_store is not None
+        "document_collection": COLLECTION,
+        "ticket_collection": TICKET_COLLECTION,
+        "vector_store_ready": vector_store is not None,
+        "ticket_vector_store_ready": ticket_vector_store is not None,
     }
 
 
@@ -462,24 +844,19 @@ async def get_chat_ui():
 async def reload_documents():
     """Endpoint to reload documents from the documents folder."""
     try:
-        # Delete existing collection and re-index documents explicitly
         qdrant_client.delete_collection(COLLECTION)
         logger.info(f"Deleted collection: {COLLECTION}")
 
-        # Recreate collection and force indexing now
         initialize_vector_store(auto_index=True)
 
         return {
             "status": "success",
             "message": "Documents reloaded and indexed successfully",
-            "collection": COLLECTION
+            "collection": COLLECTION,
         }
     except Exception as e:
         logger.error(f"Error reloading documents: {e}")
-        return {
-            "status": "error",
-            "message": str(e)
-        }
+        return {"status": "error", "message": str(e)}
 
 
 @app.get("/documents")
@@ -489,9 +866,5 @@ async def list_documents():
     for pattern in ["*.pdf", "*.txt"]:
         files = glob.glob(os.path.join(DOCUMENTS_PATH, pattern))
         documents.extend([os.path.basename(f) for f in files])
-    
-    return {
-        "documents": documents,
-        "count": len(documents),
-        "path": DOCUMENTS_PATH
-    }
+
+    return {"documents": documents, "count": len(documents), "path": DOCUMENTS_PATH}
