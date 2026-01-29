@@ -8,18 +8,13 @@ services:
       - ai_network
     environment:
       - COLLECTION=agent2_tickets
-      - EMBEDDING_MODEL=nomic-embed-text
-      - EMBEDDING_DIM=768
+      - EMBEDDING_MODEL=mxbai-embed-large
+      - EMBEDDING_DIM=1024
       - FORCE_RECREATE_COLLECTION=true
       - AUTO_INDEX_ON_STARTUP=true
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 256M
+    depends_on:
+      - ollama
+      - qdrant
 
 networks:
   ai_network:
