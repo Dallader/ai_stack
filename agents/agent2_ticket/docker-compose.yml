@@ -12,9 +12,6 @@ services:
       - EMBEDDING_DIM=1024
       - FORCE_RECREATE_COLLECTION=true
       - AUTO_INDEX_ON_STARTUP=true
-    depends_on:
-      - ollama
-      - qdrant
 
 networks:
   ai_network:
