@@ -549,15 +549,6 @@ def create_bos_ticket(
         if msg.get("response"):
             conversation_struct.append({"agent": msg["response"]})
 
-    # Determine ticket category based on the entire conversation context
-    full_text = " ".join(
-        [
-            (msg.get("question") or "") + " " + (msg.get("response") or "")
-            for msg in conversation_history
-        ]
-    )
-    ticket_category = classify_category(full_text)
-
     ticket = {
         "id": str(uuid.uuid4()),
         "subject": "reklamacja oceny",  # For this use case, subject is fixed
@@ -569,7 +560,7 @@ def create_bos_ticket(
         },
         "conversation": conversation_struct,
         "priority": classify_priority(question),
-        "category": ticket_category,
+        "category": classify_category(question),
         "status": "new",
         "source": "agent2_ticket",
         "created_at": datetime.utcnow().isoformat() + "Z",
@@ -577,6 +568,7 @@ def create_bos_ticket(
 
     try:
         if ticket_vector_store:
+            # Store a minimal page_content, but all structured data in metadata
             ticket_text = f"Ticket: {ticket['subject']}"
             ticket_vector_store.add_texts(
                 [ticket_text],
@@ -591,6 +583,7 @@ def create_bos_ticket(
                         "student_details": ticket["student_details"],
                         "conversation": ticket["conversation"],
                         "created_at": ticket["created_at"],
+                        # Add flat fields for easy search/filter
                         "student_name": ticket["student_details"].get("name", ""),
                         "student_surname": ticket["student_details"].get("surname", ""),
                         "student_email": ticket["student_details"].get("email", ""),
@@ -695,31 +688,15 @@ async def run(payload: dict):
                 logger.error(f"Error searching tickets: {e}")
         if ticket_results and ticket_results[0][1] < 0.8:
             ticket_doc = ticket_results[0][0]
-            meta = ticket_doc.metadata
-            # Pretty print ticket details
-            details = [
-                f"Zgłoszenie zostało utworzone!",
-                f"ID: {meta.get('ticket_id', '-')}",
-                f"Temat: {meta.get('subject', '-')}",
-                f"Kategoria: {meta.get('category', '-')}",
-                f"Priorytet: {meta.get('priority', '-')}",
-                f"Status: {meta.get('status', '-')}",
-                f"Data utworzenia: {meta.get('created_at', '-')}",
-                "Dane studenta:",
-                f"  Imię: {meta.get('student_name', '-')}",
-                f"  Nazwisko: {meta.get('student_surname', '-')}",
-                f"  Email: {meta.get('student_email', '-')}",
-                f"  Nr indeksu: {meta.get('student_index_id', '-')}",
-                "Rozmowa:",
+            ticket_text = ticket_doc.page_content
+            lines = ticket_text.split("\n")
+            assistant_responses = [
+                line for line in lines if line.startswith("Asystent:")
             ]
-            # Show conversation nicely
-            conversation = meta.get("conversation", [])
-            for turn in conversation:
-                if "student" in turn:
-                    details.append(f"Student: {turn['student']}")
-                if "agent" in turn:
-                    details.append(f"Asystent: {turn['agent']}")
-            response = "\n".join(details)
+            if assistant_responses:
+                response = f"Znaleziono podobne zgłoszenie. Odpowiedź: {assistant_responses[-1].replace('Asystent: ', '')}"
+            else:
+                response = f"Znaleziono zgłoszenie: {ticket_text[:500]}..."
         else:
             response = "Nie znalazłem żadnego zgłoszenia."
         conversation_history.append({"question": question, "response": response})
@@ -798,62 +775,45 @@ async def run(payload: dict):
         "collecting_surname",
         "collecting_email",
         "collecting_index",
-        "collecting_new_address",
-        "collecting_new_name",
-        "collecting_new_surname",
-        "collecting_new_bank_account",
     ]:
-        required_fields = get_required_fields_for_ticket(question, conversation_history)
-        # Determine which field to collect next
-        for field in required_fields:
-            field_state = f"collecting_{field}"
-            if state == field_state:
-                student_data[field] = question.strip()
-                # Move to next field or finish
-                next_idx = required_fields.index(field) + 1
-                if next_idx < len(required_fields):
-                    next_field = required_fields[next_idx]
-                    conv["state"] = f"collecting_{next_field}"
-                    prompts = {
-                        "new_address": "Proszę podaj nowy adres.",
-                        "new_name": "Proszę podaj nowe imię.",
-                        "new_surname": "Proszę podaj nowe nazwisko.",
-                        "new_bank_account": "Proszę podaj nowy numer konta bankowego.",
-                        "name": "Proszę podaj swoje imię.",
-                        "surname": "Proszę podaj swoje nazwisko.",
-                        "email": "Proszę podaj swój email.",
-                        "index_number": "Proszę podaj swój numer indeksu.",
-                    }
-                    response = prompts.get(next_field, f"Proszę podaj {next_field}.")
-                else:
-                    # All required fields collected
-                    ticket = create_bos_ticket(
-                        question, conversation_history, student_data
-                    )
-                    ticket_msg = "Twoje zgłoszenie zostało utworzone i przekazane do Biura Obsługi Studenta. Dziękujemy! Skontaktujemy się z Tobą wkrótce."
-                    conv["state"] = "normal"
-                    conversation_history.append(
-                        {"question": question, "response": ticket_msg}
-                    )
-                    return {
-                        "response": ticket_msg,
-                        "collection": COLLECTION,
-                        "sources_found": len(context_docs),
-                        "session_id": session_id,
-                        "ticket": ticket,
-                    }
+        if state == "collecting_name":
+            student_data["name"] = question.strip()
+            conv["state"] = "collecting_surname"
+            response = "Proszę podaj swoje nazwisko."
+        elif state == "collecting_surname":
+            student_data["surname"] = question.strip()
+            conv["state"] = "collecting_email"
+            response = "Proszę podaj swój email."
+        elif state == "collecting_email":
+            student_data["email"] = question.strip()
+            conv["state"] = "collecting_index"
+            response = "Proszę podaj swój numer indeksu."
+        elif state == "collecting_index":
+            student_data["index_number"] = question.strip()
+            if all(student_data.values()):
+                ticket = create_bos_ticket(question, conversation_history, student_data)
+                ticket_msg = (
+                    f"Utworzyłem zgłoszenie do BOS.\n"
+                    f"ID: {ticket['id']}\n"
+                    f"Kategoria: {ticket['category']}\n"
+                    f"Priorytet: {ticket['priority']}\n"
+                    f"Dane studenta: {student_data}\n"
+                    f"Pełna rozmowa została zapisana w zgłoszeniu."
+                )
+                conv["state"] = "normal"
                 conversation_history.append(
-                    {"question": question, "response": response}
+                    {"question": question, "response": ticket_msg}
                 )
                 return {
-                    "response": response,
+                    "response": ticket_msg,
                     "collection": COLLECTION,
                     "sources_found": len(context_docs),
                     "session_id": session_id,
+                    "ticket": ticket,
                 }
-        # fallback for unknown state
-        response = "Brakuje danych. Spróbuj ponownie od początku."
-        conv["state"] = "normal"
+            else:
+                response = "Brakuje danych. Spróbuj ponownie od początku."
+                conv["state"] = "normal"
         conversation_history.append({"question": question, "response": response})
         return {
             "response": response,
@@ -861,6 +821,26 @@ async def run(payload: dict):
             "sources_found": len(context_docs),
             "session_id": session_id,
         }
+
+    response, used_context, needs_clarification, propose_ticket = generate_response(
+        question, context_docs, conversation_history
+    )
+
+    if propose_ticket:
+        conv["state"] = "awaiting_ticket_confirmation"
+        response = prompt_config.get(
+            "propose_ticket",
+            "Nie mogę znaleźć odpowiedzi. Czy chcesz zgłoszenie do BOS?",
+        )
+
+    conversation_history.append({"question": question, "response": response})
+
+    return {
+        "response": response,
+        "collection": COLLECTION,
+        "sources_found": len(context_docs),
+        "session_id": session_id,
+    }
 
 
 @app.post("/chat")
