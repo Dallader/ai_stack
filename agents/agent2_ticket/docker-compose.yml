@@ -10,8 +10,8 @@ services:
       - COLLECTION=agent2_tickets
       - EMBEDDING_MODEL=mxbai-embed-large
       - EMBEDDING_DIM=1024
-      - FORCE_RECREATE_COLLECTION=true
-      - AUTO_INDEX_ON_STARTUP=true
+      - FORCE_RECREATE_COLLECTION=false
+      - AUTO_INDEX_ON_STARTUP=false
 
 networks:
   ai_network:
