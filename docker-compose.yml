@@ -8,13 +8,14 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ollama_data:/app/data
+      - ollama_data:/models
     networks:
       - ai_network
     environment:
       - OLLAMA_NUM_PARALLEL=1
       - OLLAMA_NUM_THREAD=6
       - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_MODELS=/models
     deploy:
       resources:
         limits:
@@ -124,7 +125,8 @@ services:
       - COLLECTION=agent2_tickets
       - EMBEDDING_MODEL=mxbai-embed-large
       - EMBEDDING_DIM=1024
-      - FORCE_RECREATE_COLLECTION=true
+      - FORCE_RECREATE_COLLECTION=false
+      - AUTO_INDEX_ON_STARTUP=false
     depends_on:
       - ollama
       - qdrant
