@@ -5,9 +5,12 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - ollama_data:/app/data
+      #- ollama_data:/app/data
+      - ollama_data:/models
     networks:
       - ai_network
+    environment:
+      - OLLAMA_MODELS=/models
 
 volumes:
   ollama_data:
