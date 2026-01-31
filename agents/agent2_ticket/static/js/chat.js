@@ -11,11 +11,11 @@ const uploadBtn = document.getElementById("uploadBtn");
 const fileInput = document.getElementById("fileInput");
 const uploadStatus = document.getElementById("uploadStatus");
 
-const WELCOME_MESSAGE = "Cześć! Witaj w systemie WSB Merito. Przed rozpoczęciem, potrzebuję kilku informacji. Jak masz na imię?";
+const WELCOME_MESSAGE = "Cześć! Jestem asystentem WSB Merito. Jak mogę pomóc?";
 const RETURNING_MESSAGE = "Witaj ponownie! W czym mogę Ci pomóc?";
 
 let sessionId = localStorage.getItem('wsb_session_id');
-let dataCollectionComplete = localStorage.getItem('wsb_data_complete') === 'true';
+let dataCollectionComplete = true;
 
 async function clearChat() {
   chatMessages.innerHTML = "";
@@ -37,9 +37,9 @@ async function clearChat() {
     }
   } else {
     // New session - show welcome message
-    addMessage(WELCOME_MESSAGE, "assistant", "WSB Merito", true);
+    addMessage(WELCOME_MESSAGE, "assistant", "WSB Merito", false);
     sessionId = null;
-    dataCollectionComplete = false;
+    dataCollectionComplete = true;
     localStorage.removeItem('wsb_session_id');
     localStorage.removeItem('wsb_data_complete');
   }
@@ -78,22 +78,37 @@ function clearDataCollectionMessages() {
   dataCollectionMsgs.forEach(msg => msg.remove());
 }
 
-function addLoading() {
-  const loadingDiv = document.createElement("div");
-  loadingDiv.className = "message assistant";
-  loadingDiv.id = "loadingMessage";
-  loadingDiv.innerHTML = `
-        <div class="loading">
-            <span></span><span></span><span></span>
-        </div>
-    `;
-  chatMessages.appendChild(loadingDiv);
+function startStatusSequence() {
+  const msgDiv = document.createElement("div");
+  msgDiv.className = "message assistant";
+
+  const contentDiv = document.createElement("div");
+  contentDiv.className = "message-content";
+  contentDiv.textContent = "Szukam informacji...";
+
+  const metaDiv = document.createElement("div");
+  metaDiv.className = "message-meta";
+  metaDiv.textContent = AGENT_NAME;
+
+  msgDiv.appendChild(contentDiv);
+  msgDiv.appendChild(metaDiv);
+  chatMessages.appendChild(msgDiv);
   chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  const timers = [];
+  timers.push(setTimeout(() => {
+    contentDiv.textContent = "Analizuję zebrane informacje...";
+  }, 1800));
+  timers.push(setTimeout(() => {
+    contentDiv.textContent = "Generuję odpowiedź...";
+  }, 3600));
+
+  return { msgDiv, contentDiv, timers };
 }
 
-function removeLoading() {
-  const loading = document.getElementById("loadingMessage");
-  if (loading) loading.remove();
+function clearStatusSequence(seq) {
+  if (!seq) return;
+  (seq.timers || []).forEach(t => clearTimeout(t));
 }
 
 async function uploadSelectedFile(event) {
@@ -140,7 +155,7 @@ async function sendMessage() {
   sendBtn.disabled = true;
   userInput.disabled = true;
   clearBtn.disabled = true;
-  addLoading();
+  const statusSeq = startStatusSequence();
 
   try {
     const payload = { input: message };
@@ -155,8 +170,6 @@ async function sendMessage() {
       },
       body: JSON.stringify(payload),
     });
-
-    removeLoading();
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -177,10 +190,19 @@ async function sendMessage() {
       clearDataCollectionMessages();
       dataCollectionComplete = true;
       localStorage.setItem('wsb_data_complete', 'true');
-      addMessage(result, "assistant", "", false);
+      if (statusSeq && statusSeq.contentDiv) {
+        statusSeq.contentDiv.textContent = result;
+      } else {
+        addMessage(result, "assistant", "", false);
+      }
     } else {
-      addMessage(result, "assistant", "", !data.data_collection_complete);
+      if (statusSeq && statusSeq.contentDiv) {
+        statusSeq.contentDiv.textContent = result;
+      } else {
+        addMessage(result, "assistant", "", !data.data_collection_complete);
+      }
     }
+    clearStatusSequence(statusSeq);
 
     // Update data collection status
     if (data.data_collection_complete) {
@@ -191,7 +213,7 @@ async function sendMessage() {
     statusBar.classList.remove("error");
     statusText.textContent = `Ready - ${AGENT_NAME} (port ${AGENT_PORT})`;
   } catch (error) {
-    removeLoading();
+    clearStatusSequence(statusSeq);
     let errorMsg = error.message;
     if (
       error.message.includes("Load failed") ||
@@ -199,10 +221,15 @@ async function sendMessage() {
     ) {
       errorMsg = `Cannot connect to agent. Please ensure the agent is running.`;
     }
-    addMessage(errorMsg, "assistant", "Error");
+    if (statusSeq && statusSeq.contentDiv) {
+      statusSeq.contentDiv.textContent = errorMsg;
+    } else {
+      addMessage(errorMsg, "assistant", "Error");
+    }
     statusBar.classList.add("error");
     statusText.textContent = `Connection failed`;
   } finally {
+    clearStatusSequence(statusSeq);
     sendBtn.disabled = false;
     userInput.disabled = false;
     clearBtn.disabled = false;
@@ -249,7 +276,7 @@ async function restoreSession() {
 
   // No valid session - show welcome message only if chat is empty
   if (chatMessages.children.length === 0) {
-    addMessage(WELCOME_MESSAGE, "assistant", "WSB Merito", true);
+    addMessage(WELCOME_MESSAGE, "assistant", "WSB Merito", false);
   }
 }
 

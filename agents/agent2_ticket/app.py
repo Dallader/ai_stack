@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse
 from fastapi import Request
 from pydantic import BaseModel
 import os
+import asyncio
 from pathlib import Path
 from typing import List, Dict, Optional
 import requests
@@ -85,15 +86,12 @@ class IndexRequest(BaseModel):
     pass
 
 def ollama_generate(prompt: str, context: str = "") -> str:
-    """Generate response using Ollama with proper error handling"""
+    """Generate response using Ollama with fallback between /api/generate and /api/chat."""
     try:
-        # Use environment variable or fallback to service name
         base_url = OLLAMA_URL.rstrip("/")
-        url = f"{base_url}/api/generate"
-        
-        # If context is provided, format prompt to ground the response
+
+        # Ground the prompt when context is present
         if context:
-            # Simple prompt for Command-R (RAG-optimized model)
             formatted_prompt = f"""Używając poniższych dokumentów, odpowiedz na pytanie studenta.
 
 Dokumenty:
@@ -104,36 +102,67 @@ Pytanie: {prompt}
 Odpowiedź: podaj zwięźle, w języku pytania (jeśli nie rozpoznasz, użyj polskiego)."""
         else:
             formatted_prompt = prompt
-        
-        payload = {
+
+        # First try the /api/generate endpoint
+        gen_payload = {
             "model": OLLAMA_MODEL,
             "prompt": formatted_prompt,
             "stream": False,
             "options": {
-                "temperature": 0.3,  # Moderate for natural responses
+                "temperature": 0.3,
                 "top_p": 0.9,
-                "top_k": 40,
-                "repeat_penalty": 1.2,
-                "num_predict": 500,  # Longer for complete answers
-                "num_ctx": 8192,     # Large context for Command-R
+                "top_k": 30,
+                "repeat_penalty": 1.15,
+                "num_predict": 256,
+                "num_ctx": 8192,
                 "num_thread": 8,
-                "num_gpu": 1
-            }
+                "num_gpu": 1,
+            },
         }
-        
-        response = requests.post(url, json=payload, timeout=90)  # 90 seconds max
-        response.raise_for_status()
-        data = response.json()
-        
-        return data.get("response", "No response from model")
-        
+
+        gen_url = f"{base_url}/api/generate"
+        try:
+            gen_resp = requests.post(gen_url, json=gen_payload, timeout=120)
+            if gen_resp.status_code == 404:
+                raise RuntimeError("generate endpoint 404")
+            gen_resp.raise_for_status()
+            data = gen_resp.json()
+            return data.get("response", "No response from model")
+        except Exception:
+            # Fallback to /api/chat (newer Ollama API)
+            chat_url = f"{base_url}/api/chat"
+            chat_payload = {
+                "model": OLLAMA_MODEL,
+                "messages": [
+                    {"role": "user", "content": formatted_prompt},
+                ],
+                "stream": False,
+                "options": {
+                    "temperature": 0.3,
+                    "top_p": 0.9,
+                    "top_k": 30,
+                    "repeat_penalty": 1.15,
+                    "num_predict": 256,
+                    "num_ctx": 8192,
+                    "num_thread": 8,
+                    "num_gpu": 1,
+                },
+            }
+            chat_resp = requests.post(chat_url, json=chat_payload, timeout=120)
+            chat_resp.raise_for_status()
+            data = chat_resp.json()
+            # Ollama chat returns { message: { content: "..." } }
+            if isinstance(data, dict) and isinstance(data.get("message"), dict):
+                return data["message"].get("content", "No response from model")
+            return data.get("response", "No response from model") if isinstance(data, dict) else str(data)
+
     except requests.exceptions.ConnectionError:
         raise HTTPException(
-            status_code=503, 
-            detail=f"Cannot connect to Ollama at {OLLAMA_URL}. Please ensure Ollama service is running."
+            status_code=503,
+            detail=f"Cannot connect to Ollama at {OLLAMA_URL}. Please ensure Ollama service is running.",
         )
     except requests.exceptions.Timeout:
-        return "Przepraszam, odpowiedź zajęła zbyt długo (ponad 90 sekund). Spróbuj zadać krótsze pytanie lub poczekaj, aż model się załaduje."
+        return "Przepraszam, odpowiedź zajęła zbyt długo (ponad 120 sekund). Spróbuj zadać krótsze pytanie lub poczekaj, aż model się załaduje."
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ollama error: {str(e)}")
 
@@ -297,6 +326,26 @@ async def startup_event():
     print(f"Connected to Qdrant at {QDRANT_URL}")
     print(f"Using collection: {QDRANT_COLLECTION}")
     print(f"Ollama URL: {OLLAMA_URL}")
+    asyncio.create_task(warmup_model())
+
+
+async def warmup_model():
+    """Load the Ollama model once at startup to reduce first-response latency."""
+    try:
+        # Give container a moment to ensure Ollama is reachable
+        await asyncio.sleep(1)
+        payload = {
+            "model": OLLAMA_MODEL,
+            "messages": [{"role": "user", "content": "ping"}],
+            "stream": False,
+            "options": {"num_predict": 50, "temperature": 0.2},
+        }
+        url = f"{OLLAMA_URL.rstrip('/')}/api/chat"
+        resp = requests.post(url, json=payload, timeout=120)
+        resp.raise_for_status()
+        print("Ollama warmup complete")
+    except Exception as e:
+        print(f"Ollama warmup skipped: {e}")
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
@@ -448,61 +497,19 @@ async def run_agent(request: RunRequest):
                     "email": None,
                     "index_number": None
                 },
-                "data_collection_complete": False,
-                "current_field": "name",
+                "data_collection_complete": True,
                 "chat_history": [],
-                "data_collection_messages": []  # Track which messages are data collection
+                "ticket_intent": False,
+                "pending_issue": None,
             }
-        
+
+        # Backfill new fields for existing sessions
         session = sessions[session_id]
-        
-        # If data collection not complete, handle it
-        if not session["data_collection_complete"]:
-            field = session["current_field"]
-            
-            # Store the data
-            if field == "name":
-                session["user_data"]["name"] = user_input
-                session["current_field"] = "surname"
-                response = "Dziękuję! Jakie jest Twoje nazwisko?"
-                is_data_collection = True
-            elif field == "surname":
-                session["user_data"]["surname"] = user_input
-                session["current_field"] = "email"
-                response = "Świetnie! Podaj proszę swój adres email:"
-                is_data_collection = True
-            elif field == "email":
-                # Basic email validation
-                if "@" in user_input and "." in user_input:
-                    session["user_data"]["email"] = user_input
-                    session["current_field"] = "index_number"
-                    response = "Doskonale! Podaj swój numer indeksu:"
-                    is_data_collection = True
-                else:
-                    response = "Proszę podać prawidłowy adres email (np. imie.nazwisko@example.com)"
-                    is_data_collection = True
-            elif field == "index_number":
-                session["user_data"]["index_number"] = user_input
-                session["data_collection_complete"] = True
-                response = f"Dziękuję {session['user_data']['name']}! Twoje dane zostały zapisane. W czym mogę Ci pomóc?"
-                is_data_collection = False  # This is the transition message
-            else:
-                # Fallback in case of unexpected state
-                response = "Przepraszam, coś poszło nie tak. Zacznijmy od początku. Jak masz na imię?"
-                session["current_field"] = "name"
-                is_data_collection = True
-            
-            # Store in chat history
-            session["chat_history"].append({"role": "user", "content": user_input, "is_data_collection": is_data_collection})
-            session["chat_history"].append({"role": "assistant", "content": response, "is_data_collection": is_data_collection})
-            
-            return {
-                "response": response,
-                "session_id": session_id,
-                "data_collection_complete": session["data_collection_complete"],
-                "clear_previous": session["data_collection_complete"]  # Signal to clear data collection messages
-            }
-        
+        session.setdefault("ticket_intent", False)
+        session.setdefault("pending_issue", None)
+
+        session = sessions[session_id]
+
         # Data collection complete - handle normal Q&A
         
         # Check if asking about procedures/regulations (not personal grades)
@@ -552,53 +559,85 @@ async def run_agent(request: RunRequest):
                 traceback.print_exc()
         
         # Check if user wants to create a ticket (BOS zgłoszenie)
-        ticket_keywords = ["utwórz zgłoszenie", "utworzyć zgłoszenie", "zgłoszenie do bos", "stwórz zgłoszenie", "chcę zgłosić", "chciałbym zgłosić"]
+        ticket_keywords = [
+            "utwórz zgłoszenie", "utworzyć zgłoszenie", "zgłoszenie do bos", "stwórz zgłoszenie", "chcę zgłosić", "chciałbym zgłosić",
+            "zrób zgłoszenie", "zrob zgłoszenie", "zrób ticket", "zrób zgłoszenie do bos"
+        ]
         wants_ticket = any(keyword in user_input.lower() for keyword in ticket_keywords)
-        
+
+        def missing_fields(u):
+            mapping = {"imię": "name", "nazwisko": "surname", "email": "email", "numer indeksu": "index_number"}
+            return [k for k, v in mapping.items() if not u.get(v)]
+
         if wants_ticket:
-            # Create ticket automatically using session data
-            try:
-                ensure_tickets_collection_exists()
-                
-                # Get chat history for context
-                chat_history = session.get("chat_history", [])
-                chat_summary = "\n".join([f"{msg.get('role', 'user')}: {msg.get('content', '')}" for msg in chat_history[-5:]])
-                
-                # Create ticket
-                ticket_id = uuid4().hex
-                timestamp = datetime.now().isoformat()
-                ticket_text = f"{user_input}\n\nKontekst rozmowy: {chat_summary}"
-                
-                vector = encode_passages([ticket_text])[0]
-                
-                payload = {
-                    "ticket_id": ticket_id,
-                    "timestamp": timestamp,
-                    "status": "Open",
-                    "category": "Academic Question",
-                    "priority": "Medium",
-                    "user_name": session["user_data"]["name"],
-                    "user_surname": session["user_data"]["surname"],
-                    "user_email": session["user_data"]["email"],
-                    "user_index_number": session["user_data"]["index_number"],
-                    "question": user_input,
-                    "chat_history": chat_history,
-                    "ticket_text": ticket_text
+            session["ticket_intent"] = True
+            if not session.get("pending_issue"):
+                session["pending_issue"] = user_input
+
+        if session.get("ticket_intent"):
+            # Try to extract any details from this message
+            parse_user_details_from_text(user_input, session["user_data"])
+
+            if user_details_complete(session["user_data"]):
+                try:
+                    ensure_tickets_collection_exists()
+                    chat_history = session.get("chat_history", [])
+                    chat_summary = "\n".join([f"{msg.get('role', 'user')}: {msg.get('content', '')}" for msg in chat_history[-5:]])
+                    category, priority = categorize_ticket(user_input, chat_history)
+                    ticket_id = uuid4().hex
+                    timestamp = datetime.now().isoformat()
+                    issue_text = session.get("pending_issue") or user_input
+                    ticket_text = f"{issue_text}\n\nKontekst rozmowy: {chat_summary}"
+                    vector = encode_passages([ticket_text])[0]
+
+                    payload = {
+                        "ticket_id": ticket_id,
+                        "timestamp": timestamp,
+                        "status": "Open",
+                        "category": category,
+                        "priority": priority,
+                        "user_name": session["user_data"].get("name"),
+                        "user_surname": session["user_data"].get("surname"),
+                        "user_email": session["user_data"].get("email"),
+                        "user_index_number": session["user_data"].get("index_number"),
+                        "question": issue_text,
+                        "chat_history": chat_history,
+                        "ticket_text": ticket_text
+                    }
+
+                    point = rest_models.PointStruct(id=ticket_id, vector=vector, payload=payload)
+                    qdrant_client.upsert(collection_name=TICKETS_COLLECTION, points=[point])
+
+                    response = (
+                        "✅ Zgłoszenie zostało utworzone!"\
+                        f"\n\n📋 Numer zgłoszenia: {ticket_id[:8]}"\
+                        f"\n📂 Kategoria: {category}"\
+                        f"\n⚡ Priorytet: {priority}"\
+                        f"\n📧 Email: {session['user_data'].get('email')}"\
+                        f"\n🎓 Nr indeksu: {session['user_data'].get('index_number')}"\
+                        "\nTwoje zgłoszenie zostało przekazane do Biura Obsługi Studenta."
+                    )
+
+                    # Reset ticket intent state
+                    session["data_collection_complete"] = True
+                    session["ticket_intent"] = False
+                    session["pending_issue"] = None
+                except Exception as e:
+                    response = f"Przepraszam, wystąpił błąd podczas tworzenia zgłoszenia: {str(e)}"
+            else:
+                missing = missing_fields(session["user_data"])
+                response = "Aby utworzyć zgłoszenie, podaj proszę: " + ", ".join(missing)
+                session["data_collection_complete"] = False
+                session["chat_history"].append({"role": "user", "content": user_input, "is_data_collection": True})
+                session["chat_history"].append({"role": "assistant", "content": response, "is_data_collection": True})
+                return {
+                    "response": response,
+                    "session_id": session_id,
+                    "data_collection_complete": False,
+                    "clear_previous": False
                 }
-                
-                point = rest_models.PointStruct(
-                    id=ticket_id,
-                    vector=vector,
-                    payload=payload
-                )
-                
-                qdrant_client.upsert(collection_name=TICKETS_COLLECTION, points=[point])
-                
-                response = f"✅ Zgłoszenie zostało utworzone!\n\n📋 Numer zgłoszenia: {ticket_id[:8]}\n👤 Dane: {session['user_data']['name']} {session['user_data']['surname']}\n📧 Email: {session['user_data']['email']}\n🎓 Nr indeksu: {session['user_data']['index_number']}\n\nTwoje zgłoszenie zostało przekazane do Biura Obsługi Studenta. Otrzymasz odpowiedź na podany adres email."
-                
-            except Exception as e:
-                response = f"Przepraszam, wystąpił błąd podczas tworzenia zgłoszenia: {str(e)}"
-        elif student_data:
+
+        if student_data:
             # Student is asking about grades and we have their data
             # Build direct response with pre-calculated data (no LLM calculations)
             
@@ -678,13 +717,19 @@ async def run_agent(request: RunRequest):
             ).points
             
             if not search_results:
-                response = "Nie mam wystarczających informacji w mojej bazie wiedzy, aby odpowiedzieć na to pytanie. Spróbuj przeformułować pytanie lub zapytaj o tematy zawarte w przesłanych dokumentach."
+                status_lines = [
+                    "🔎 Szukam w bazie wiedzy...",
+                    "⚠️ Nic nie znaleziono powyżej progu trafności",
+                    "🙋 Poproś o więcej szczegółów lub dodaj dokument."
+                ]
+                response = (
+                    "\n".join(status_lines) +
+                    "\n\nNie znalazłem wystarczających informacji. Podaj więcej szczegółów (kontekst, daty, kierunek), "
+                    "a jeśli chcesz, mogę później utworzyć zgłoszenie do BOS po zebraniu danych.")
             else:
                 # Build context from retrieved chunks
                 context_parts = []
                 sources = []
-                
-                # If we have high-confidence results, show them directly
                 top_score = search_results[0].score if search_results else 0
                 
                 for result in search_results:
@@ -693,9 +738,16 @@ async def run_agent(request: RunRequest):
                         sources.append(result.payload['source'])
                 
                 context = "\n\n---\n\n".join(context_parts)
+
+                status_lines = [
+                    "🔎 Szukam w bazie wiedzy...",
+                    f"📚 Znalazłem {len(search_results)} fragmenty (top score: {top_score:.2f})",
+                    "🤖 Generuję odpowiedź na podstawie znalezionych treści."
+                ]
                 
                 # Use LLM to generate nice response from context
-                response = ollama_generate(user_input, context=context)
+                answer = ollama_generate(user_input, context=context)
+                response = "\n".join(status_lines) + "\n\n" + answer
         
         # Store in chat history
         session["chat_history"].append({"role": "user", "content": user_input, "is_data_collection": False})
@@ -704,7 +756,7 @@ async def run_agent(request: RunRequest):
         return {
             "response": response,
             "session_id": session_id,
-            "data_collection_complete": True,
+            "data_collection_complete": session.get("data_collection_complete", True),
             "clear_previous": False
         }
         
