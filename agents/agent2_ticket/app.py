@@ -5,13 +5,13 @@ from fastapi.responses import HTMLResponse
 from fastapi import Request
 from pydantic import BaseModel
 import os
+import logging
 import asyncio
 from pathlib import Path
 from typing import List, Dict, Optional
 import requests
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as rest_models
-from sentence_transformers import SentenceTransformer
 import numpy as np
 from datetime import datetime
 from uuid import uuid4
@@ -29,8 +29,8 @@ from tools.helpers import (
 
 # Config
 BASE_DIR = Path(__file__).parent
-DOCS_DIR = BASE_DIR / "documents"  # legacy/support folder
-INCOMING_DIR = BASE_DIR / "incoming"  # preferred for new uploads
+DOCS_DIR = BASE_DIR / "documents"
+INCOMING_DIR = BASE_DIR / "incoming"
 KNOWLEDGE_DIR = BASE_DIR / "knowledge"
 PROCESSED_DIR = BASE_DIR / "processed_documents"
 LOGS_DIR = BASE_DIR / "logs"
@@ -40,10 +40,11 @@ QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "documents")
 TICKETS_COLLECTION = os.getenv("TICKETS_COLLECTION", "tickets")
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:latest")
+OLLAMA_EMBED_URL = os.getenv("OLLAMA_EMBED_URL", OLLAMA_URL)
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral:7b")
 
-EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-large")
-USE_E5_PREFIX = "e5" in EMBEDDING_MODEL_NAME.lower()
+OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
+OLLAMA_EMBED_DIM = int(os.getenv("OLLAMA_EMBED_DIM", "768"))
 
 app = FastAPI(title="Agent WSB Merito API")
 
@@ -51,18 +52,46 @@ app = FastAPI(title="Agent WSB Merito API")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# Initialize embedding model globally
-embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
-VECTOR_SIZE = embedding_model.get_sentence_embedding_dimension()
+VECTOR_SIZE = OLLAMA_EMBED_DIM
 qdrant_client = QdrantClient(url=QDRANT_URL)
 
 
+def ollama_embed(texts: List[str]) -> List[List[float]]:
+    """Embed a list of texts using Ollama's /api/embeddings endpoint."""
+    embeddings: List[List[float]] = []
+    base_url = OLLAMA_EMBED_URL.rstrip("/")
+    url = f"{base_url}/api/embeddings"
+    for t in texts:
+        payload = {"model": OLLAMA_EMBED_MODEL, "prompt": t}
+        try:
+            resp = requests.post(url, json=payload, timeout=90)
+            resp.raise_for_status()
+        except requests.exceptions.HTTPError as http_err:
+            status = http_err.response.status_code if http_err.response else None
+            if status == 404:
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        "Endpoint /api/embeddings nie jest dostępny w usłudze Ollama. "
+                        "Zaktualizuj obraz Ollama do najnowszej wersji i upewnij się, że model embeddingów jest pobrany."
+                    ),
+                )
+            raise
+
+        data = resp.json()
+        vec = data.get("embedding")
+        if not vec:
+            raise HTTPException(status_code=500, detail="Brak embeddingu w odpowiedzi Ollama")
+        embeddings.append(vec)
+    return embeddings
+
+
 def encode_passages(texts: List[str]) -> List[List[float]]:
-    return embed_chunks(embedding_model, texts, use_e5_prefix=USE_E5_PREFIX, normalize=True)
+    return ollama_embed(texts)
 
 
 def encode_query(text: str) -> List[float]:
-    return embed_chunks(embedding_model, [text], is_query=True, use_e5_prefix=USE_E5_PREFIX, normalize=True)[0]
+    return ollama_embed([text])[0]
 
 # In-memory session storage
 sessions: Dict[str, Dict] = {}
@@ -109,20 +138,20 @@ Odpowiedź: podaj zwięźle, w języku pytania (jeśli nie rozpoznasz, użyj pol
             "prompt": formatted_prompt,
             "stream": False,
             "options": {
-                "temperature": 0.3,
+                "temperature": 0.2,
                 "top_p": 0.9,
-                "top_k": 30,
-                "repeat_penalty": 1.15,
-                "num_predict": 256,
-                "num_ctx": 8192,
-                "num_thread": 8,
+                "top_k": 25,
+                "repeat_penalty": 1.1,
+                "num_predict": 128,
+                "num_ctx": 4096,
+                "num_thread": 6,
                 "num_gpu": 1,
             },
         }
 
         gen_url = f"{base_url}/api/generate"
         try:
-            gen_resp = requests.post(gen_url, json=gen_payload, timeout=120)
+            gen_resp = requests.post(gen_url, json=gen_payload, timeout=150)
             if gen_resp.status_code == 404:
                 raise RuntimeError("generate endpoint 404")
             gen_resp.raise_for_status()
@@ -138,17 +167,25 @@ Odpowiedź: podaj zwięźle, w języku pytania (jeśli nie rozpoznasz, użyj pol
                 ],
                 "stream": False,
                 "options": {
-                    "temperature": 0.3,
+                    "temperature": 0.2,
                     "top_p": 0.9,
-                    "top_k": 30,
-                    "repeat_penalty": 1.15,
-                    "num_predict": 256,
-                    "num_ctx": 8192,
-                    "num_thread": 8,
+                    "top_k": 25,
+                    "repeat_penalty": 1.1,
+                    "num_predict": 128,
+                    "num_ctx": 4096,
+                    "num_thread": 6,
                     "num_gpu": 1,
                 },
             }
-            chat_resp = requests.post(chat_url, json=chat_payload, timeout=120)
+            chat_resp = requests.post(chat_url, json=chat_payload, timeout=150)
+            if chat_resp.status_code == 404:
+                raise HTTPException(
+                    status_code=502,
+                    detail=(
+                        "Ollama endpoint /api/chat not available at "
+                        f"{chat_url}. Sprawdź OLLAMA_URL lub aktualizację obrazu Ollama."
+                    ),
+                )
             chat_resp.raise_for_status()
             data = chat_resp.json()
             # Ollama chat returns { message: { content: "..." } }
@@ -162,7 +199,7 @@ Odpowiedź: podaj zwięźle, w języku pytania (jeśli nie rozpoznasz, użyj pol
             detail=f"Cannot connect to Ollama at {OLLAMA_URL}. Please ensure Ollama service is running.",
         )
     except requests.exceptions.Timeout:
-        return "Przepraszam, odpowiedź zajęła zbyt długo (ponad 120 sekund). Spróbuj zadać krótsze pytanie lub poczekaj, aż model się załaduje."
+        return "Przepraszam, odpowiedź zajęła zbyt długo (ponad 150 sekund). Spróbuj zadać krótsze pytanie lub poczekaj, aż model się załaduje."
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ollama error: {str(e)}")
 
@@ -326,26 +363,6 @@ async def startup_event():
     print(f"Connected to Qdrant at {QDRANT_URL}")
     print(f"Using collection: {QDRANT_COLLECTION}")
     print(f"Ollama URL: {OLLAMA_URL}")
-    asyncio.create_task(warmup_model())
-
-
-async def warmup_model():
-    """Load the Ollama model once at startup to reduce first-response latency."""
-    try:
-        # Give container a moment to ensure Ollama is reachable
-        await asyncio.sleep(1)
-        payload = {
-            "model": OLLAMA_MODEL,
-            "messages": [{"role": "user", "content": "ping"}],
-            "stream": False,
-            "options": {"num_predict": 50, "temperature": 0.2},
-        }
-        url = f"{OLLAMA_URL.rstrip('/')}/api/chat"
-        resp = requests.post(url, json=payload, timeout=120)
-        resp.raise_for_status()
-        print("Ollama warmup complete")
-    except Exception as e:
-        print(f"Ollama warmup skipped: {e}")
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
@@ -376,64 +393,6 @@ async def upload_student_document(
     data = await file.read()
     result = ingest_uploaded_document(file.filename, data, uploaded_by=student_email or student_name)
     return result
-
-@app.get("/student/{index_number}")
-async def get_student_data(index_number: str):
-    """Get student data by index number"""
-    try:
-        # Search for student by index number
-        results = qdrant_client.scroll(
-            collection_name="students",
-            scroll_filter=rest_models.Filter(
-                must=[
-                    rest_models.FieldCondition(
-                        key="index_number",
-                        match=rest_models.MatchValue(value=index_number)
-                    )
-                ]
-            ),
-            limit=1
-        )
-        
-        if not results[0]:
-            raise HTTPException(status_code=404, detail=f"Student with index {index_number} not found")
-        
-        student = results[0][0].payload
-        return {
-            "student": student,
-            "semester_averages": student.get("semester_averages", []),
-            "year_averages": student.get("year_averages", []),
-            "total_average": student.get("total_average", 0)
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching student: {str(e)}")
-
-@app.post("/init-students")
-async def initialize_students_db():
-    """Initialize students database with sample data"""
-    try:
-        import subprocess
-        result = subprocess.run(
-            ["python3", "init_students_db.py"],
-            cwd="/app",
-            capture_output=True,
-            text=True
-        )
-        
-        if result.returncode == 0:
-            return {
-                "message": "Students database initialized successfully",
-                "output": result.stdout
-            }
-        else:
-            raise HTTPException(
-                status_code=500, 
-                detail=f"Initialization failed: {result.stderr}"
-            )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 @app.get("/collections")
 async def list_collections():
@@ -512,51 +471,7 @@ async def run_agent(request: RunRequest):
 
         # Data collection complete - handle normal Q&A
         
-        # Check if asking about procedures/regulations (not personal grades)
-        procedure_keywords = ["jak", "w jaki sposób", "procedura", "reklamacja", "zareklamować", "odwołać", "odwołanie", 
-                             "złożyć", "składać", "wniosek", "regulamin", "zasady", "przepisy", "prawo"]
-        asking_about_procedure = any(keyword in user_input.lower() for keyword in procedure_keywords)
-        
-        # Check if student is asking about their OWN grades/averages (not procedures)
-        personal_grade_keywords = ["moja średnia", "moje oceny", "moja ocena", "jaką mam", "jaki mam", 
-                                  "ile mam", "moje wyniki", "mój wynik", "mojej średniej", "moich ocen"]
-        asking_about_personal_grades = any(keyword in user_input.lower() for keyword in personal_grade_keywords)
-        
-        # Only fetch student data if asking about personal grades AND not asking about procedures
-        asking_about_grades = asking_about_personal_grades and not asking_about_procedure
-        
         print(f"User input: '{user_input}'")
-        print(f"Asking about procedure: {asking_about_procedure}")
-        print(f"Asking about personal grades: {asking_about_personal_grades}")
-        print(f"Will fetch student data: {asking_about_grades}")
-        print(f"Index number: {session['user_data']['index_number']}")
-        
-        # Try to fetch student data if asking about grades
-        student_data = None
-        if asking_about_grades and session["user_data"]["index_number"]:
-            try:
-                print(f"Fetching student data for index: {session['user_data']['index_number']}")
-                results = qdrant_client.scroll(
-                    collection_name="students",
-                    scroll_filter=rest_models.Filter(
-                        must=[
-                            rest_models.FieldCondition(
-                                key="index_number",
-                                match=rest_models.MatchValue(value=session["user_data"]["index_number"])
-                            )
-                        ]
-                    ),
-                    limit=1
-                )
-                if results[0]:
-                    student_data = results[0][0].payload
-                    print(f"Student data found: {student_data.get('name')} {student_data.get('surname')}")
-                else:
-                    print("No student data found in results")
-            except Exception as e:
-                print(f"Could not fetch student data: {e}")
-                import traceback
-                traceback.print_exc()
         
         # Check if user wants to create a ticket (BOS zgłoszenie)
         ticket_keywords = [
@@ -637,117 +552,44 @@ async def run_agent(request: RunRequest):
                     "clear_previous": False
                 }
 
-        if student_data:
-            # Student is asking about grades and we have their data
-            # Build direct response with pre-calculated data (no LLM calculations)
-            
-            response_parts = [
-                f"📊 Dane studenta: {student_data['name']} {student_data['surname']}",
-                f"🎓 Program: {student_data['program']} - Rok {student_data['year']}",
-                f"📋 Numer indeksu: {student_data['index_number']}",
-                "",
-                f"📈 **Średnia ogólna za wszystkie semestry: {student_data.get('total_average', 0)}**",
-                ""
-            ]
-            
-            # Check what specific info the user wants
-            if "semestr" in user_input.lower():
-                # Extract semester number if mentioned
-                import re
-                semester_match = re.search(r'semestr\w*\s+(\d+)', user_input.lower())
-                if semester_match:
-                    sem_num = int(semester_match.group(1))
-                    # Find specific semester
-                    sem_avg = next((s for s in student_data.get('semester_averages', []) if s['semester'] == sem_num), None)
-                    if sem_avg:
-                        response_parts.append(f"📚 **Średnia z semestru {sem_num}: {sem_avg['average']}**")
-                        response_parts.append("")
-                        # Show detailed grades for that semester
-                        sem_data = next((s for s in student_data.get('semesters', []) if s['semester'] == sem_num), None)
-                        if sem_data:
-                            response_parts.append(f"Szczegółowe oceny - Semestr {sem_num} ({sem_data['year']}):")
-                            for subject in sem_data['subjects']:
-                                response_parts.append(f"  • {subject['name']}: {subject['grade']} ({subject['ects']} ECTS)")
-                    else:
-                        response_parts.append(f"Nie znaleziono danych dla semestru {sem_num}.")
-                else:
-                    # Show all semester averages
-                    response_parts.append("📚 Średnie semestralne:")
-                    for sem_avg in student_data.get('semester_averages', []):
-                        response_parts.append(f"  • Semestr {sem_avg['semester']}: {sem_avg['average']}")
-            
-            if "rok" in user_input.lower() and "akademicki" in user_input.lower() or "roczn" in user_input.lower():
-                response_parts.append("")
-                response_parts.append("📅 Średnie roczne:")
-                for year_avg in student_data.get('year_averages', []):
-                    response_parts.append(f"  • Rok {year_avg['year']}: {year_avg['average']}")
-            
-            if "wszystkie" in user_input.lower() or "wszystkich" in user_input.lower():
-                response_parts.append("")
-                response_parts.append("📖 Wszystkie oceny:")
-                for semester in student_data.get('semesters', []):
-                    response_parts.append(f"\n**Semestr {semester['semester']} ({semester['year']})**")
-                    sem_avg = next((s['average'] for s in student_data.get('semester_averages', []) if s['semester'] == semester['semester']), 0)
-                    response_parts.append(f"Średnia semestralna: {sem_avg}")
-                    for subject in semester['subjects']:
-                        response_parts.append(f"  • {subject['name']}: {subject['grade']} ({subject['ects']} ECTS)")
-            
-            # If no specific query matched, show summary
-            if len(response_parts) <= 6:
-                response_parts.append("📚 Średnie semestralne:")
-                for sem_avg in student_data.get('semester_averages', []):
-                    response_parts.append(f"  • Semestr {sem_avg['semester']}: {sem_avg['average']}")
-                response_parts.append("")
-                response_parts.append("📅 Średnie roczne:")
-                for year_avg in student_data.get('year_averages', []):
-                    response_parts.append(f"  • Rok {year_avg['year']}: {year_avg['average']}")
-            
-            response = "\n".join(response_parts)
-        else:
-            # Normal Q&A flow
-            # Generate query embedding
-            query_vector = encode_query(user_input)
-            
-            # Search Qdrant using query_points
-            search_results = qdrant_client.query_points(
-                collection_name=QDRANT_COLLECTION,
-                query=query_vector,
-                limit=3,  # Only top 3 most relevant chunks
-                score_threshold=0.4  # Higher threshold for better quality
-            ).points
-            
-            if not search_results:
-                status_lines = [
-                    "🔎 Szukam w bazie wiedzy...",
-                    "⚠️ Nic nie znaleziono powyżej progu trafności",
-                    "🙋 Poproś o więcej szczegółów lub dodaj dokument."
-                ]
-                response = (
-                    "\n".join(status_lines) +
-                    "\n\nNie znalazłem wystarczających informacji. Podaj więcej szczegółów (kontekst, daty, kierunek), "
-                    "a jeśli chcesz, mogę później utworzyć zgłoszenie do BOS po zebraniu danych.")
-            else:
-                # Build context from retrieved chunks
-                context_parts = []
-                sources = []
-                top_score = search_results[0].score if search_results else 0
-                
-                for result in search_results:
-                    context_parts.append(f"[Źródło: {result.payload['source']}]\n{result.payload['text']}")
-                    if result.payload['source'] not in sources:
-                        sources.append(result.payload['source'])
-                
-                context = "\n\n---\n\n".join(context_parts)
+        # Normal Q&A flow
+        query_vector = encode_query(user_input)
 
-                status_lines = [
-                    "🔎 Szukam w bazie wiedzy...",
-                    f"📚 Znalazłem {len(search_results)} fragmenty (top score: {top_score:.2f})",
-                    "🤖 Generuję odpowiedź na podstawie znalezionych treści."
-                ]
-                
-                # Use LLM to generate nice response from context
-                answer = ollama_generate(user_input, context=context)
-                response = "\n".join(status_lines) + "\n\n" + answer
+        search_results = qdrant_client.query_points(
+            collection_name=QDRANT_COLLECTION,
+            query=query_vector,
+            limit=3,
+            score_threshold=0.4
+        ).points
+
+        if not search_results:
+            status_lines = [
+                "🔎 Szukam w bazie wiedzy...",
+                "⚠️ Nic nie znaleziono powyżej progu trafności",
+                "🙋 Poproś o więcej szczegółów lub dodaj dokument."
+            ]
+            response = (
+                "\n".join(status_lines) +
+                "\n\nNie znalazłem wystarczających informacji. Podaj więcej szczegółów (kontekst, daty, kierunek), "
+                "a jeśli chcesz, mogę później utworzyć zgłoszenie do BOS po zebraniu danych.")
+        else:
+            context_parts = []
+            sources = []
+            top_score = search_results[0].score if search_results else 0
+
+            for result in search_results:
+                context_parts.append(f"[Źródło: {result.payload['source']}]\n{result.payload['text']}")
+                if result.payload['source'] not in sources:
+                    sources.append(result.payload['source'])
+
+            context = "\n\n---\n\n".join(context_parts)
+
+            status_lines = [
+                "Generuję odpowiedź na podstawie znalezionych treści."
+            ]
+
+            answer = ollama_generate(user_input, context=context)
+            response = "\n".join(status_lines) + "\n\n" + answer
         
         # Store in chat history
         session["chat_history"].append({"role": "user", "content": user_input, "is_data_collection": False})
@@ -1014,55 +856,6 @@ async def create_ticket(request: TicketRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ticket creation error: {str(e)}")
 
-@app.get("/tickets")
-async def list_tickets(status: Optional[str] = None, limit: int = 50):
-    """List tickets from Qdrant"""
-    try:
-        ensure_tickets_collection_exists()
-        
-        # Scroll through tickets
-        tickets = []
-        offset = None
-        
-        while len(tickets) < limit:
-            result = qdrant_client.scroll(
-                collection_name=TICKETS_COLLECTION,
-                limit=min(limit - len(tickets), 100),
-                offset=offset,
-                with_payload=True,
-                with_vectors=False
-            )
-            
-            points, next_offset = result
-            
-            if not points:
-                break
-            
-            for point in points:
-                payload = point.payload
-                if status is None or payload.get("status") == status:
-                    tickets.append({
-                        "ticket_id": payload.get("ticket_id"),
-                        "timestamp": payload.get("timestamp"),
-                        "status": payload.get("status"),
-                        "category": payload.get("category"),
-                        "priority": payload.get("priority"),
-                        "user_name": payload.get("user_name"),
-                        "user_email": payload.get("user_email"),
-                        "question": payload.get("question", "")[:100] + "..." if len(payload.get("question", "")) > 100 else payload.get("question", "")
-                    })
-            
-            if next_offset is None:
-                break
-            offset = next_offset
-        
-        return {
-            "tickets": tickets[:limit],
-            "count": len(tickets)
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching tickets: {str(e)}")
 
 @app.get("/health")
 async def health_check():
