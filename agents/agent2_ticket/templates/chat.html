@@ -20,16 +20,40 @@
                 <span id="statusText">Ready - WSB Merito (port 8002)</span>
             </div>
 
+            <div class="upload-bar">
+                <div class="upload-copy">
+                    <p class="upload-title">Prześlij dokument studencki</p>
+                    <p class="upload-subtitle">Sprawdzę podobieństwo w bazie i nadam kategorię.</p>
+                </div>
+                <div class="upload-actions">
+                    <input type="file" id="fileInput" accept=".pdf,.txt,.md,.doc,.docx" hidden>
+                    <button class="upload-btn" id="uploadBtn">Dodaj plik</button>
+                    <span class="upload-status" id="uploadStatus">Brak pliku</span>
+                </div>
+            </div>
+
             <div class="chat-messages" id="chatMessages">
-                <div class="message assistant">
-                    <div class="message-content">Cześć w czym mogę Ci pomóc?</div>
+                <div class="message assistant" data-collection="true">
+                    <div class="message-content">Cześć! Witaj w systemie WSB Merito. Przed rozpoczęciem, potrzebuję
+                        kilku informacji. Jak masz na imię?</div>
                     <div class="message-meta">WSB Merito</div>
                 </div>
             </div>
 
             <div class="chat-input-area">
-                <button class="clear-btn" id="clearBtn" title="Nowa rozmowa">🗑️</button>
-                <input type="text" class="chat-input" id="userInput" placeholder="Zadaj mi pytanie.." autofocus>
+                <div class="input-wrapper">
+                    <input type="text" class="chat-input" id="userInput" placeholder="Zadaj mi pytanie.." autofocus>
+                    <button class="clear-btn" id="clearBtn" title="Wyczyść rozmowę">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+                            </path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                    </button>
+                </div>
                 <button class="send-btn" id="sendBtn">Wyślij</button>
             </div>
         </div>

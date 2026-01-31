@@ -1,17 +1,24 @@
 services:
   agent2_ticket:
     build: .
-    container_name: agent2_ticket_testing
+    container_name: agent2_ticket
     ports:
-      - "8006:8000"
+      - "8002:8000"
     networks:
       - ai_network
     environment:
-      - COLLECTION=agent2_tickets
-      - EMBEDDING_MODEL=mxbai-embed-large
-      - EMBEDDING_DIM=1024
-      - FORCE_RECREATE_COLLECTION=false
-      - AUTO_INDEX_ON_STARTUP=false
+      - QDRANT_COLLECTION=documents
+      - TICKETS_COLLECTION=tickets
+      - EMBEDDING_MODEL=intfloat/multilingual-e5-large
+      - OLLAMA_MODEL=llama3.1:latest
+      - QDRANT_URL=http://qdrant:6333
+      - OLLAMA_URL=http://ollama:11434
+    volumes:
+      - ./documents:/app/documents
+      - ./incoming:/app/incoming
+      - ./knowledge:/app/knowledge
+      - ./processed_documents:/app/processed_documents
+      - ./logs:/app/logs
 
 networks:
   ai_network:

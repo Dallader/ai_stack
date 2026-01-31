@@ -1,7 +1,7 @@
 services:
   # ==================== INFRASTRUCTURE ====================
   
-  # Ollama - LLM Server (optimized for M1 MacBook Pro 16GB - increased to 10GB)
+  # Ollama - LLM Server (optimized for M1 MacBook Pro 16GB)
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
@@ -13,17 +13,20 @@ services:
       - ai_network
     environment:
       - OLLAMA_NUM_PARALLEL=1
-      - OLLAMA_NUM_THREAD=6
+      - OLLAMA_NUM_THREAD=8
       - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_KEEP_ALIVE=5m
       - OLLAMA_MODELS=/models
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_ORIGINS=["*"]
     deploy:
       resources:
         limits:
-          cpus: '6'
-          memory: 12G
+          cpus: '9'
+          memory: 14G
         reservations:
-          cpus: '4'
-          memory: 8G
+          cpus: '9'
+          memory: 14G
 
   # Qdrant - Vector Database
   qdrant:
@@ -122,22 +125,30 @@ services:
     networks:
       - ai_network
     environment:
-      - COLLECTION=agent2_tickets
-      - EMBEDDING_MODEL=mxbai-embed-large
-      - EMBEDDING_DIM=1024
-      - FORCE_RECREATE_COLLECTION=true
-      - AUTO_INDEX_ON_STARTUP=true
+      - QDRANT_COLLECTION=documents
+      - TICKETS_COLLECTION=tickets
+      - QDRANT_URL=http://qdrant:6333
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=llama3.1:latest 
+      - HF_TOKEN=${HF_TOKEN:-} 
+      - EMBEDDING_MODEL=intfloat/multilingual-e5-large
+    volumes:
+      - ./agents/agent2_ticket/documents:/app/documents
+      - ./agents/agent2_ticket/incoming:/app/incoming
+      - ./agents/agent2_ticket/knowledge:/app/knowledge
+      - ./agents/agent2_ticket/processed_documents:/app/processed_documents
+      - ./agents/agent2_ticket/logs:/app/logs
     depends_on:
       - ollama
       - qdrant
     deploy:
       resources:
         limits:
-          cpus: '1'
-          memory: 512M
+          cpus: '4'
+          memory: 2G
         reservations:
-          cpus: '0.5'
-          memory: 256M
+          cpus: '2'
+          memory: 1G
 
   # Agent 3 - Analytics
   agent3_analytics:
@@ -215,4 +226,4 @@ volumes:
 # ==================== NETWORKS ====================
 networks:
   ai_network:
-    driver: bridge
+    external: true

@@ -93,11 +93,19 @@ body {
     background: white;
     border-top: 1px solid #e9ecef;
     gap: 10px;
+    align-items: center;
+}
+
+.input-wrapper {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
 }
 
 .chat-input {
-    flex: 1;
-    padding: 12px 16px;
+    width: 100%;
+    padding: 12px 48px 12px 16px;
     border: 2px solid #e9ecef;
     border-radius: 24px;
     font-size: 1rem;
@@ -135,20 +143,31 @@ body {
 }
 
 .clear-btn {
-    padding: 12px 16px;
-    background: #f8f9fa;
-    color: #666;
-    border: 2px solid #e9ecef;
-    border-radius: 24px;
+    position: absolute;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    padding: 6px;
+    background: transparent;
+    color: #999;
+    border: none;
+    border-radius: 50%;
     cursor: pointer;
-    font-size: 0.9rem;
     transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.clear-btn svg {
+    width: 18px;
+    height: 18px;
 }
 
 .clear-btn:hover {
-    background: #ffebee;
-    border-color: #f44336;
-    color: #c62828;
+    background: #f8f9fa;
+    color: #f44336;
+    transform: scale(1.1);
 }
 
 .loading {
@@ -174,6 +193,7 @@ body {
 }
 
 @keyframes bounce {
+
     0%,
     80%,
     100% {
@@ -209,4 +229,57 @@ body {
 
 .status-bar.error .status-dot {
     background: #f44336;
+}
+
+.upload-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    background: #0f172a;
+    color: #e2e8f0;
+}
+
+.upload-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.upload-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.upload-subtitle {
+    font-size: 0.85rem;
+    color: #cbd5e1;
+}
+
+.upload-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.upload-btn {
+    padding: 10px 14px;
+    background: linear-gradient(135deg, #7bcfe7 0%, #15938d 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.upload-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.upload-status {
+    font-size: 0.85rem;
+    color: #a5b4fc;
 }

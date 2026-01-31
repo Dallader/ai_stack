@@ -1,10 +1,31 @@
-fastapi
-uvicorn
+## Core
 langchain
 langchain-community
-langchain-ollama
-langchain-qdrant
-langchain-text-splitters
-qdrant-client
-pypdf
+llama-index
+fastapi
+uvicorn
+jinja2
+python-multipart
+
+## Embeddings / ML
 sentence-transformers
+torch
+transformers
+accelerate
+
+## Document processing
+pypdf
+docx2txt
+
+## Vector DB
+qdrant-client
+
+## LLM integration
+langchain_groq
+groq
+
+## Utilities
+python-dotenv
+tqdm
+requests
+pandas
