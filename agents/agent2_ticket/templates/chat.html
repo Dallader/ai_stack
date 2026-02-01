@@ -30,7 +30,13 @@
             <div class="chat-input-area">
                 <div class="input-wrapper">
                     <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt,.md,image/*,.xls,.xlsx" hidden>
-                    <button class="upload-inline-btn" id="uploadBtn" aria-label="Dodaj plik">+</button>
+                    <button class="upload-inline-btn" id="uploadBtn" aria-label="Dodaj plik">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    </button>
                     <input type="text" class="chat-input" id="userInput" placeholder="Zadaj mi pytanie.." autofocus>
                     <button class="clear-btn" id="clearBtn" title="Wyczyść rozmowę">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"

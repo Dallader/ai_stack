@@ -104,7 +104,7 @@ body {
 }
 
 .upload-status {
-    font-size: 0.9rem;
+    font-size: 12px;
     font-weight: 300;
     color: #ababab;
 }
@@ -141,13 +141,14 @@ body {
 
 .chat-input {
     width: 100%;
-    padding: 12px 48px 12px 62px;
+    padding: 12px 48px 12px 48px;
     border: 2px solid #e5e7eb;
     border-radius: 24px;
     font-size: 1rem;
     outline: none;
     transition: border-color 0.25s, box-shadow 0.25s;
     background: #ffffff;
+    font-weight: 300;
 }
 
 .chat-input:focus {
@@ -182,13 +183,13 @@ body {
 
 .clear-btn {
     position: absolute;
-    right: 12px;
+    right: 7px;
     width: 32px;
     height: 32px;
     padding: 6px;
     background: transparent;
     color: #999;
-    border: none;
+    border: 2px solid #e5e7eb;
     border-radius: 50%;
     cursor: pointer;
     transition: all 0.2s;
@@ -203,29 +204,30 @@ body {
 }
 
 .clear-btn:hover {
-    background: #f8f9fa;
     color: #f44336;
     transform: scale(1.1);
 }
 
 .upload-inline-btn {
     position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 38px;
-    height: 38px;
-    border-radius: 12px;
-    border: 1.5px solid #d7dfe7;
-    background: #ffffff;
-    color: #4b5563;
-    font-size: 20px;
-    font-weight: 700;
+    left: 7px;
+    width: 32px;
+    height: 32px;
+    padding: 6px;
+    background: transparent;
+    color: #999;
+    border: 2px solid #e5e7eb;
+    border-radius: 50%;
     cursor: pointer;
-    display: inline-flex;
+    transition: all 0.2s;
+    display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s, background-color 0.2s;
+}
+
+.upload-inline-btn:hover {
+    color: #2bca90;
+    transform: scale(1.1);
 }
 
 .loading {
@@ -287,24 +289,6 @@ body {
 
 .status-bar.error .status-dot {
     background: #f44336;
-}
-
-.upload-inline-btn {
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 30px;
-    height: 30px;
-    background: #ffffff;
-    color: #4b5563;
-    border: none;
-    font-size: 20px;
-    font-weight: 500;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .upload-status-chip {
