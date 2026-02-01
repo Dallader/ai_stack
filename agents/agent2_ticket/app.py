@@ -297,13 +297,14 @@ def load_and_index_documents() -> int:
     total_points = 0
     for doc in documents:
         doc_id = uuid4().hex
+        category = categorize_text(doc["text"], CATEGORIES_PL, ollama_model=OLLAMA_MODEL, ollama_url=OLLAMA_URL)
         chunks = chunk_text(doc["text"], chunk_size=800, chunk_overlap=200)
         vectors = encode_passages(chunks)
         payload = {
             "doc_id": doc_id,
             "source": doc["source"],
             "path": doc["path"],
-            "category": doc.get("origin", "documents"),
+            "category": category,
             "origin": doc.get("origin", "documents"),
         }
         total_points += upsert_document_chunks(
