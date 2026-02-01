@@ -29,9 +29,8 @@
 
             <div class="chat-input-area">
                 <div class="input-wrapper">
-                    <input type="file" id="fileInput" accept=".pdf,image/*,.xls,.xlsx" hidden>
-                    <button class="upload-inline-btn" id="uploadBtn" aria-label="Dodaj plik"
-                        data-tooltip="Dozwolone: PDF, PNG/JPG, Excel">+</button>
+                    <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.txt,.md,image/*,.xls,.xlsx" hidden>
+                    <button class="upload-inline-btn" id="uploadBtn" aria-label="Dodaj plik">+</button>
                     <input type="text" class="chat-input" id="userInput" placeholder="Zadaj mi pytanie.." autofocus>
                     <button class="clear-btn" id="clearBtn" title="Wyczyść rozmowę">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -45,6 +44,13 @@
                     </button>
                 </div>
                 <button class="send-btn" id="sendBtn">Wyślij</button>
+            </div>
+
+            <div class="upload-status-row">
+                <div class="upload-status" id="uploadStatus" aria-live="polite">
+                    Brak pliku. Dozwolone: PDF, DOC/DOCX, TXT/MD, PNG/JPG, Excel.
+                </div>
+                <button type="button" class="upload-clear-btn hidden" id="clearFileBtn">Usuń plik</button>
             </div>
         </div>
 

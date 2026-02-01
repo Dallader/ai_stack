@@ -10,12 +10,33 @@ const statusBar = document.getElementById("statusBar");
 const uploadBtn = document.getElementById("uploadBtn");
 const fileInput = document.getElementById("fileInput");
 const uploadStatus = document.getElementById("uploadStatus");
+const clearFileBtn = document.getElementById("clearFileBtn");
+const UPLOAD_HINT = "Dozwolone: PDF, DOC/DOCX, TXT/MD, PNG/JPG, Excel.";
 
 const WELCOME_MESSAGE = "Cześć! Jestem asystentem WSB Merito. Jak mogę pomóc?";
 const RETURNING_MESSAGE = "Witaj ponownie! W czym mogę Ci pomóc?";
 
 let sessionId = localStorage.getItem('wsb_session_id');
 let dataCollectionComplete = true;
+let pendingFile = null;
+
+// Ensure the status line shows allowed types on load
+if (uploadStatus) {
+  uploadStatus.textContent = UPLOAD_HINT;
+}
+
+function resetPendingFile() {
+  pendingFile = null;
+  if (fileInput) {
+    fileInput.value = "";
+  }
+  if (uploadStatus) {
+    uploadStatus.textContent = UPLOAD_HINT;
+  }
+  if (clearFileBtn) {
+    clearFileBtn.classList.add("hidden");
+  }
+}
 
 async function clearChat() {
   chatMessages.innerHTML = "";
@@ -49,7 +70,8 @@ async function clearChat() {
 
 clearBtn.addEventListener("click", clearChat);
 uploadBtn.addEventListener("click", () => fileInput.click());
-fileInput.addEventListener("change", uploadSelectedFile);
+fileInput.addEventListener("change", handleFileSelection);
+clearFileBtn?.addEventListener("click", resetPendingFile);
 
 function addMessage(content, type, meta = "", isDataCollection = false) {
   const messageDiv = document.createElement("div");
@@ -111,13 +133,25 @@ function clearStatusSequence(seq) {
   (seq.timers || []).forEach(t => clearTimeout(t));
 }
 
-async function uploadSelectedFile(event) {
+function handleFileSelection(event) {
   const file = event.target.files?.[0];
   if (!file) {
+    resetPendingFile();
     return;
   }
 
-  uploadStatus.textContent = `Wysyłam: ${file.name}`;
+  pendingFile = file;
+  const sizeKb = Math.max(1, Math.round(file.size / 1024));
+  uploadStatus.textContent = `Wybrano: ${file.name} (${sizeKb} KB). Plik zostanie sprawdzony przy wysłaniu pytania.`;
+  clearFileBtn?.classList.remove("hidden");
+}
+
+async function uploadPendingFile() {
+  if (!pendingFile) {
+    return { status: "none" };
+  }
+
+  const file = pendingFile;
   const formData = new FormData();
   formData.append("file", file);
 
@@ -132,23 +166,22 @@ async function uploadSelectedFile(event) {
     }
 
     const data = await response.json();
-    const msg = data.status === "existing"
-      ? `📁 Podobny dokument już w bazie (score ${(data.match_score || 0).toFixed(2)}). Źródło: ${data.match_source || "brak"}.`
-      : `✅ Dokument dodany (kategoria: ${data.category || "nieznana"}). ID: ${data.doc_id || "n/a"}`;
-
-    addMessage(msg, "assistant", AGENT_NAME, false);
-    uploadStatus.textContent = data.status === "existing" ? "Dokument już istnieje" : "Dodano do bazy";
+    resetPendingFile();
+    return { status: "uploaded", data };
   } catch (error) {
-    uploadStatus.textContent = "Błąd podczas wysyłki";
-    addMessage(`Błąd wysyłki pliku: ${error.message}`, "assistant", "Error", false);
-  } finally {
-    fileInput.value = "";
+    uploadStatus.textContent = "Błąd wysyłki. Spróbuj ponownie.";
+    return { status: "error", error };
   }
 }
 
 async function sendMessage() {
   const message = userInput.value.trim();
   if (!message) return;
+
+  const uploadResult = await uploadPendingFile();
+  if (uploadResult.status === "error") {
+    return;
+  }
 
   addMessage(message, "user", "", !dataCollectionComplete);
   userInput.value = "";
