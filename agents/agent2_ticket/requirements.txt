@@ -16,6 +16,8 @@ accelerate
 ## Document processing
 pypdf
 docx2txt
+pillow
+openpyxl
 
 ## Vector DB
 qdrant-client

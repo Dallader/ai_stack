@@ -1,4 +1,5 @@
 import os
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
 from types import SimpleNamespace
@@ -23,6 +24,16 @@ try:
     import docx2txt
 except Exception:
     docx2txt = None
+
+try:
+    from PIL import Image
+except Exception:
+    Image = None
+
+try:
+    import pytesseract
+except Exception:
+    pytesseract = None
 
 try:
     from pypdf import PdfReader
@@ -208,42 +219,18 @@ def load_documents_from_dir(dir_path: Path):
         return docs
 
     for p in entries:
-        if p.is_dir():
+        if p.is_dir() or p.name.startswith("."):
             continue
         try:
-            if p.suffix.lower() == ".pdf":
-                try:
-                    if PdfReader is None:
-                        continue
-                    reader = PdfReader(str(p))
-                    text = "\n\n".join([page.extract_text() or "" for page in reader.pages])
-                    docs.append(type("Document", (), {"page_content": text, "metadata": {"source": str(p)}})())
-                except Exception:
-                    continue
-            elif p.suffix.lower() in {".txt", ".md"}:
-                try:
-                    with open(p, "r", encoding="utf-8") as f:
-                        text = f.read()
-                    docs.append(type("Document", (), {"page_content": text, "metadata": {"source": str(p)}})())
-                except Exception:
-                    continue
-            elif p.suffix.lower() in {".docx", ".doc"}:
-                try:
-                    if docx2txt is None:
-                        continue
-                    text = docx2txt.process(str(p))
-                    docs.append(type("Document", (), {"page_content": text, "metadata": {"source": str(p)}})())
-                except Exception:
-                    continue
-            else:
-                try:
-                    with open(p, "r", encoding="utf-8", errors="ignore") as f:
-                        text = f.read()
-                    docs.append(type("Document", (), {"page_content": text, "metadata": {"source": str(p)}})())
-                except Exception:
-                    continue
+            data = p.read_bytes()
         except Exception:
             continue
+
+        text = extract_text_from_upload(p.name, data)
+        if not text.strip():
+            continue
+
+        docs.append(type("Document", (), {"page_content": text, "metadata": {"source": str(p)}})())
     return docs
 
 
@@ -377,12 +364,52 @@ def _extract_pdf_text(data: bytes) -> str:
     if PdfReader is None:
         return ""
     try:
-        from io import BytesIO
-
         reader = PdfReader(BytesIO(data))
         return "\n\n".join([page.extract_text() or "" for page in reader.pages])
     except Exception:
         return ""
+
+
+def _extract_image_text(filename: str, data: bytes) -> str:
+    if Image is None:
+        return f"Obraz {filename}. Brak wsparcia OCR w środowisku."
+    try:
+        img = Image.open(BytesIO(data))
+        if pytesseract:
+            try:
+                text = pytesseract.image_to_string(img)
+                if text and text.strip():
+                    return text
+            except Exception:
+                pass
+        fmt = (img.format or "image").upper()
+        return f"Obraz {filename} ({fmt}, {img.width}x{img.height}). Dodaj opis w wiadomości, aby wykorzystać plik w odpowiedzi."
+    except Exception:
+        return f"Obraz {filename}. Nie udało się odczytać zawartości."
+
+
+def _extract_excel_text(filename: str, data: bytes) -> str:
+    try:
+        import pandas as pd
+    except Exception:
+        return f"Skoroszyt {filename}. Brak wsparcia dla odczytu arkuszy."
+
+    try:
+        sheets = pd.read_excel(BytesIO(data), sheet_name=None, dtype=str)
+    except Exception:
+        return f"Skoroszyt {filename}. Nie udało się wczytać pliku."
+
+    if not sheets:
+        return f"Skoroszyt {filename}. Brak danych w arkuszu."
+
+    parts: List[str] = []
+    for sheet_name, df in sheets.items():
+        if df.empty:
+            continue
+        parts.append(f"[Arkusz: {sheet_name}]")
+        parts.append(df.fillna("").to_csv(index=False))
+
+    return "\n\n".join(parts) if parts else f"Skoroszyt {filename}. Nie znaleziono danych."
 
 
 def extract_text_from_upload(filename: str, data: bytes) -> str:
@@ -407,6 +434,10 @@ def extract_text_from_upload(filename: str, data: bytes) -> str:
                 return docx2txt.process(tmp.name)
         except Exception:
             return ""
+    if suffix in {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"}:
+        return _extract_image_text(filename, data)
+    if suffix in {".xls", ".xlsx"}:
+        return _extract_excel_text(filename, data)
     try:
         return data.decode("utf-8", errors="ignore")
     except Exception:

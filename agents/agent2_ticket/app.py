@@ -46,6 +46,31 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral:7b")
 OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
 OLLAMA_EMBED_DIM = int(os.getenv("OLLAMA_EMBED_DIM", "768"))
 
+
+def _parse_positive_int(value: Optional[str], default: int) -> int:
+    try:
+        parsed = int(value) if value is not None else default
+        return default if parsed <= 0 else parsed
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_timeout(value: Optional[str], default: Optional[int]) -> Optional[int]:
+    try:
+        if value is None:
+            return default
+        parsed = int(value)
+        return None if parsed <= 0 else parsed
+    except (TypeError, ValueError):
+        return default
+
+
+OLLAMA_REQUEST_TIMEOUT = _parse_timeout(os.getenv("OLLAMA_REQUEST_TIMEOUT"), 600)
+_default_llm_timeout = None if OLLAMA_REQUEST_TIMEOUT is None else OLLAMA_REQUEST_TIMEOUT + 60
+LLM_TIMEOUT_SECONDS = _parse_timeout(os.getenv("LLM_TIMEOUT_SECONDS"), _default_llm_timeout)
+OLLAMA_NUM_PREDICT = _parse_positive_int(os.getenv("OLLAMA_NUM_PREDICT"), 768)
+OLLAMA_NUM_CTX = _parse_positive_int(os.getenv("OLLAMA_NUM_CTX"), 4096)
+
 app = FastAPI(title="Agent WSB Merito API")
 
 # Mount static files and templates
@@ -64,7 +89,7 @@ def ollama_embed(texts: List[str]) -> List[List[float]]:
     for t in texts:
         payload = {"model": OLLAMA_EMBED_MODEL, "prompt": t}
         try:
-            resp = requests.post(url, json=payload, timeout=90)
+            resp = requests.post(url, json=payload, timeout=OLLAMA_REQUEST_TIMEOUT)
             resp.raise_for_status()
         except requests.exceptions.HTTPError as http_err:
             status = http_err.response.status_code if http_err.response else None
@@ -92,6 +117,19 @@ def encode_passages(texts: List[str]) -> List[List[float]]:
 
 def encode_query(text: str) -> List[float]:
     return ollama_embed([text])[0]
+
+
+async def generate_with_timeout(prompt: str, context: str = "", timeout: Optional[int] = LLM_TIMEOUT_SECONDS) -> str:
+    """Run ollama_generate with an optional async timeout and safe fallback message."""
+    try:
+        if timeout is None:
+            return await asyncio.to_thread(ollama_generate, prompt, context)
+        return await asyncio.wait_for(asyncio.to_thread(ollama_generate, prompt, context), timeout=timeout)
+    except asyncio.TimeoutError:
+        return (
+            "Odpowiedź modelu zajmuje zbyt długo. Spróbuj ponownie za chwilę, podaj więcej szczegółów "
+            "lub sprawdź dostępność usługi modelu."
+        )
 
 # In-memory session storage
 sessions: Dict[str, Dict] = {}
@@ -128,7 +166,7 @@ Dokumenty:
 
 Pytanie: {prompt}
 
-Odpowiedź: podaj zwięźle, w języku pytania (jeśli nie rozpoznasz, użyj polskiego)."""
+Odpowiedź: przygotuj logiczną i kompletną odpowiedź w 10-15 zdaniach (więcej jeśli potrzeba), bez urywania wątków, w języku pytania (jeśli nie rozpoznasz, użyj polskiego)."""
         else:
             formatted_prompt = prompt
 
@@ -142,16 +180,16 @@ Odpowiedź: podaj zwięźle, w języku pytania (jeśli nie rozpoznasz, użyj pol
                 "top_p": 0.9,
                 "top_k": 25,
                 "repeat_penalty": 1.1,
-                "num_predict": 128,
-                "num_ctx": 4096,
-                "num_thread": 6,
+                "num_predict": OLLAMA_NUM_PREDICT,
+                "num_ctx": OLLAMA_NUM_CTX,
+                "num_thread": 10,
                 "num_gpu": 1,
             },
         }
 
         gen_url = f"{base_url}/api/generate"
         try:
-            gen_resp = requests.post(gen_url, json=gen_payload, timeout=150)
+            gen_resp = requests.post(gen_url, json=gen_payload, timeout=OLLAMA_REQUEST_TIMEOUT)
             if gen_resp.status_code == 404:
                 raise RuntimeError("generate endpoint 404")
             gen_resp.raise_for_status()
@@ -171,13 +209,13 @@ Odpowiedź: podaj zwięźle, w języku pytania (jeśli nie rozpoznasz, użyj pol
                     "top_p": 0.9,
                     "top_k": 25,
                     "repeat_penalty": 1.1,
-                    "num_predict": 128,
-                    "num_ctx": 4096,
-                    "num_thread": 6,
+                    "num_predict": OLLAMA_NUM_PREDICT,
+                    "num_ctx": OLLAMA_NUM_CTX,
+                    "num_thread": 10,
                     "num_gpu": 1,
                 },
             }
-            chat_resp = requests.post(chat_url, json=chat_payload, timeout=150)
+            chat_resp = requests.post(chat_url, json=chat_payload, timeout=OLLAMA_REQUEST_TIMEOUT)
             if chat_resp.status_code == 404:
                 raise HTTPException(
                     status_code=502,
@@ -199,7 +237,11 @@ Odpowiedź: podaj zwięźle, w języku pytania (jeśli nie rozpoznasz, użyj pol
             detail=f"Cannot connect to Ollama at {OLLAMA_URL}. Please ensure Ollama service is running.",
         )
     except requests.exceptions.Timeout:
-        return "Przepraszam, odpowiedź zajęła zbyt długo (ponad 150 sekund). Spróbuj zadać krótsze pytanie lub poczekaj, aż model się załaduje."
+        wait_note = f"ponad {OLLAMA_REQUEST_TIMEOUT} sekund" if OLLAMA_REQUEST_TIMEOUT else "bardzo długo"
+        return (
+            f"Przepraszam, odpowiedź zajęła {wait_note}. "
+            "Spróbuj zadać krótsze pytanie lub poczekaj, aż model się załaduje."
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ollama error: {str(e)}")
 
@@ -220,7 +262,7 @@ def load_and_index_documents() -> int:
     ]
 
     documents = []
-    allowed_ext = {".pdf", ".txt", ".md", ".doc", ".docx"}
+    allowed_ext = {".pdf", ".txt", ".md", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".xls", ".xlsx"}
 
     for base_dir, origin in sources:
         if not base_dir.exists():
@@ -280,7 +322,7 @@ def ingest_uploaded_document(filename: str, data: bytes, uploaded_by: Optional[s
     if not data:
         raise HTTPException(status_code=400, detail="Empty file upload")
 
-    allowed_extensions = {".pdf", ".txt", ".md", ".docx", ".doc"}
+    allowed_extensions = {".pdf", ".txt", ".md", ".docx", ".doc", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".xls", ".xlsx"}
     file_ext = Path(filename).suffix.lower()
     if file_ext not in allowed_extensions:
         raise HTTPException(
@@ -524,11 +566,11 @@ async def run_agent(request: RunRequest):
                     qdrant_client.upsert(collection_name=TICKETS_COLLECTION, points=[point])
 
                     response = (
-                        "✅ Zgłoszenie zostało utworzone!"\
-                        f"\n\n📋 Numer zgłoszenia: {ticket_id[:8]}"\
-                        f"\n📂 Kategoria: {category}"\
+                        " Zgłoszenie zostało utworzone!"\
+                        f"\n\n Numer zgłoszenia: {ticket_id[:8]}"\
+                        f"\n Kategoria: {category}"\
                         f"\n⚡ Priorytet: {priority}"\
-                        f"\n📧 Email: {session['user_data'].get('email')}"\
+                        f"\n Email: {session['user_data'].get('email')}"\
                         f"\n🎓 Nr indeksu: {session['user_data'].get('index_number')}"\
                         "\nTwoje zgłoszenie zostało przekazane do Biura Obsługi Studenta."
                     )
@@ -562,11 +604,13 @@ async def run_agent(request: RunRequest):
             score_threshold=0.4
         ).points
 
+        response_header: Optional[str] = None
+
         if not search_results:
             status_lines = [
-                "🔎 Szukam w bazie wiedzy...",
-                "⚠️ Nic nie znaleziono powyżej progu trafności",
-                "🙋 Poproś o więcej szczegółów lub dodaj dokument."
+                " Szukam w bazie wiedzy...",
+                " Nic nie znaleziono powyżej progu trafności",
+                " Poproś o więcej szczegółów lub dodaj dokument."
             ]
             response = (
                 "\n".join(status_lines) +
@@ -584,12 +628,9 @@ async def run_agent(request: RunRequest):
 
             context = "\n\n---\n\n".join(context_parts)
 
-            status_lines = [
-                "Generuję odpowiedź na podstawie znalezionych treści."
-            ]
-
-            answer = ollama_generate(user_input, context=context)
-            response = "\n".join(status_lines) + "\n\n" + answer
+            response_header = "Znalazłem poniższe informacje:"
+            answer = await generate_with_timeout(user_input, context=context)
+            response = answer
         
         # Store in chat history
         session["chat_history"].append({"role": "user", "content": user_input, "is_data_collection": False})
@@ -597,6 +638,7 @@ async def run_agent(request: RunRequest):
         
         return {
             "response": response,
+            "response_header": response_header,
             "session_id": session_id,
             "data_collection_complete": session.get("data_collection_complete", True),
             "clear_previous": False
@@ -671,7 +713,7 @@ async def query_agent(request: QueryRequest):
             print(f"  - {info['source']} (score: {info['score']:.3f}): {info['text_preview']}")
         
         # Use LLM to generate nice response from context
-        response_text = ollama_generate(user_query, context=context)
+        response_text = await generate_with_timeout(user_query, context=context)
         
         return {
             "response": response_text,

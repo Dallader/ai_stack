@@ -183,6 +183,7 @@ async function sendMessage() {
       localStorage.setItem('wsb_session_id', sessionId);
     }
 
+    const header = data.response_header;
     const result = data.response || JSON.stringify(data, null, 2);
 
     // Check if we should clear data collection messages
@@ -190,19 +191,19 @@ async function sendMessage() {
       clearDataCollectionMessages();
       dataCollectionComplete = true;
       localStorage.setItem('wsb_data_complete', 'true');
-      if (statusSeq && statusSeq.contentDiv) {
-        statusSeq.contentDiv.textContent = result;
-      } else {
-        addMessage(result, "assistant", "", false);
-      }
-    } else {
-      if (statusSeq && statusSeq.contentDiv) {
-        statusSeq.contentDiv.textContent = result;
-      } else {
-        addMessage(result, "assistant", "", !data.data_collection_complete);
-      }
     }
+
     clearStatusSequence(statusSeq);
+    if (statusSeq && statusSeq.msgDiv) {
+      statusSeq.msgDiv.remove();
+    }
+
+    const isDataCollection = data.clear_previous ? false : !data.data_collection_complete;
+
+    if (header) {
+      addMessage(header, "assistant", "", isDataCollection);
+    }
+    addMessage(result, "assistant", "", isDataCollection);
 
     // Update data collection status
     if (data.data_collection_complete) {

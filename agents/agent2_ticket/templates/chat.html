@@ -20,18 +20,6 @@
                 <span id="statusText">Ready - WSB Merito (port 8002)</span>
             </div>
 
-            <div class="upload-bar">
-                <div class="upload-copy">
-                    <p class="upload-title">Prześlij dokument studencki</p>
-                    <p class="upload-subtitle">Sprawdzę podobieństwo w bazie i nadam kategorię.</p>
-                </div>
-                <div class="upload-actions">
-                    <input type="file" id="fileInput" accept=".pdf,.txt,.md,.doc,.docx" hidden>
-                    <button class="upload-btn" id="uploadBtn">Dodaj plik</button>
-                    <span class="upload-status" id="uploadStatus">Brak pliku</span>
-                </div>
-            </div>
-
             <div class="chat-messages" id="chatMessages">
                 <div class="message assistant">
                     <div class="message-content">Cześć! Jestem asystentem WSB Merito. Jak mogę pomóc?</div>
@@ -41,6 +29,9 @@
 
             <div class="chat-input-area">
                 <div class="input-wrapper">
+                    <input type="file" id="fileInput" accept=".pdf,image/*,.xls,.xlsx" hidden>
+                    <button class="upload-inline-btn" id="uploadBtn" aria-label="Dodaj plik"
+                        data-tooltip="Dozwolone: PDF, PNG/JPG, Excel">+</button>
                     <input type="text" class="chat-input" id="userInput" placeholder="Zadaj mi pytanie.." autofocus>
                     <button class="clear-btn" id="clearBtn" title="Wyczyść rozmowę">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
