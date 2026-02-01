@@ -80,6 +80,31 @@ templates = Jinja2Templates(directory="templates")
 VECTOR_SIZE = OLLAMA_EMBED_DIM
 qdrant_client = QdrantClient(url=QDRANT_URL)
 
+_documents_index_checked = False
+
+
+def _ensure_documents_indexed_once():
+    """Index known document folders on first access if the collection is empty."""
+    global _documents_index_checked
+    if _documents_index_checked:
+        return
+    _documents_index_checked = True
+    try:
+        info = qdrant_client.get_collection(QDRANT_COLLECTION)
+        points_count = getattr(info, "points_count", None)
+        try:
+            points_count = int(points_count) if points_count is not None else None
+        except Exception:
+            points_count = None
+    except Exception:
+        points_count = None
+
+    if not points_count:
+        try:
+            load_and_index_documents()
+        except Exception as e:
+            logging.warning("Auto-indexing documents failed: %s", e)
+
 
 def ollama_embed(texts: List[str]) -> List[List[float]]:
     """Embed a list of texts using Ollama's /api/embeddings endpoint."""
@@ -596,13 +621,15 @@ async def run_agent(request: RunRequest):
                 }
 
         # Normal Q&A flow
+        _ensure_documents_indexed_once()
+
         query_vector = encode_query(user_input)
 
         search_results = qdrant_client.query_points(
             collection_name=QDRANT_COLLECTION,
             query=query_vector,
-            limit=3,
-            score_threshold=0.4
+            limit=5,
+            score_threshold=0.2
         ).points
 
         response_header: Optional[str] = None
@@ -672,6 +699,8 @@ async def query_agent(request: QueryRequest):
         if not user_query:
             raise HTTPException(status_code=400, detail="Question cannot be empty")
         
+        _ensure_documents_indexed_once()
+
         # Generate query embedding
         query_vector = encode_query(user_query)
         
@@ -679,8 +708,8 @@ async def query_agent(request: QueryRequest):
         search_results = qdrant_client.query_points(
             collection_name=QDRANT_COLLECTION,
             query=query_vector,
-            limit=3,  # Only top 3 most relevant chunks
-            score_threshold=0.4  # Higher threshold for better quality
+            limit=5,  # fetch more chunks to avoid missing specifics
+            score_threshold=0.2  # lower threshold to capture narrower matches
         ).points
         
         if not search_results:
