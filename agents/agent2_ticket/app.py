@@ -365,7 +365,10 @@ def ingest_uploaded_document(filename: str, data: bytes, uploaded_by: Optional[s
 
     text = extract_text_from_upload(filename, data)
     if not text.strip():
-        raise HTTPException(status_code=400, detail="Nie udało się odczytać tekstu z pliku")
+        text = (
+            f"Nie udało się odczytać treści z pliku {filename}. "
+            "Jeśli to skan lub obraz, opisz krótko zawartość wiadomości, aby ułatwić odpowiedź."
+        )
 
     ensure_collection_exists(QDRANT_COLLECTION, VECTOR_SIZE)
 
@@ -390,6 +393,8 @@ def ingest_uploaded_document(filename: str, data: bytes, uploaded_by: Optional[s
 
     category = categorize_text(text, CATEGORIES_PL, ollama_model=OLLAMA_MODEL, ollama_url=OLLAMA_URL)
     chunks = chunk_text(text, chunk_size=800, chunk_overlap=200)
+    if not chunks:
+        chunks = [text]
     vectors = encode_passages(chunks)
     doc_id = uuid4().hex
 

@@ -16,6 +16,13 @@ const UPLOAD_HINT = "Dozwolone: PDF, DOC/DOCX, TXT/MD, PNG/JPG, Excel.";
 const WELCOME_MESSAGE = "Cześć! Jestem asystentem WSB Merito. Jak mogę pomóc?";
 const RETURNING_MESSAGE = "Witaj ponownie! W czym mogę Ci pomóc?";
 
+function shortenFilename(name, maxLen = 50) {
+  if (!name || name.length <= maxLen) return name;
+  const tailLen = 12;
+  const headLen = maxLen - tailLen - 3; // account for "..."
+  return `${name.slice(0, headLen)}...${name.slice(-tailLen)}`;
+}
+
 let sessionId = localStorage.getItem('wsb_session_id');
 let dataCollectionComplete = true;
 let pendingFile = null;
@@ -156,7 +163,8 @@ function handleFileSelection(event) {
 
   pendingFile = file;
   const sizeKb = Math.max(1, Math.round(file.size / 1024));
-  setUploadStatus(`Wybrano: ${file.name} (${sizeKb} KB). Plik zostanie sprawdzony przy wysłaniu pytania.`);
+  const displayName = shortenFilename(file.name, 50);
+  setUploadStatus(`Wybrano: ${displayName} (${sizeKb} KB).\nPlik zostanie sprawdzony przy wysłaniu pytania.`);
   clearFileBtn?.classList.remove("hidden");
 }
 
@@ -210,19 +218,14 @@ async function sendMessage() {
   sendBtn.disabled = true;
   userInput.disabled = true;
   clearBtn.disabled = true;
-  const statusSeq = startStatusSequence();
+  let statusSeq = null;
 
   // If a file is present, upload it first (blocking response generation)
   const fileToUpload = pendingFile;
   if (fileToUpload) {
-    addMessage("Przetwarzam załączony plik...", "assistant", AGENT_NAME, true);
     resetPendingFile();
     const uploadResult = await uploadFile(fileToUpload);
     if (uploadResult.status === "error") {
-      clearStatusSequence(statusSeq);
-      if (statusSeq && statusSeq.msgDiv) {
-        statusSeq.msgDiv.remove();
-      }
       addMessage("Nie udało się przetworzyć pliku. Spróbuj ponownie.", "assistant", "Error", false);
       sendBtn.disabled = false;
       userInput.disabled = false;
@@ -231,6 +234,8 @@ async function sendMessage() {
       return;
     }
   }
+
+  statusSeq = startStatusSequence();
 
   try {
     const payload = { input: message };
