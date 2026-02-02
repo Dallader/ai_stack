@@ -1,7 +1,7 @@
 services:
   agent2_ticket:
     build: .
-    container_name: agent2_ticket_testing
+    container_name: agent2_ticket
     ports:
       - "8006:8000"
     networks:
