@@ -191,6 +191,87 @@ def ollama_generate(prompt: str, model: str | None = None, ollama_url: str | Non
     return f"[Ollama generate error] No working endpoint. Tried bases: {base_urls}. Endpoints: {endpoints}. Errors: {'; '.join(errors[:5])}"
 
 
+def _ollama_base_urls(ollama_url: str | None = None) -> List[str]:
+    """Build ordered list of Ollama base URLs, removing duplicates."""
+    base_urls: List[str] = []
+    if ollama_url:
+        base_urls.append(ollama_url.rstrip("/"))
+    embed_env = os.getenv("OLLAMA_EMBED_URL")
+    if embed_env:
+        base_urls.append(embed_env.rstrip("/"))
+    env_url = os.getenv("OLLAMA_URL")
+    if env_url:
+        base_urls.append(env_url.rstrip("/"))
+    base_urls += ["http://localhost:11434", "http://127.0.0.1:11434", "http://ollama:11434"]
+    seen = set()
+    return [x for x in base_urls if not (x in seen or seen.add(x))]
+
+
+def ollama_embed(text: str, model: str | None = None, ollama_url: str | None = None) -> List[float]:
+    """Embed a single text using Ollama embeddings API."""
+    base_urls = _ollama_base_urls(ollama_url)
+    model = model or os.getenv("OLLAMA_EMBED_MODEL") or os.getenv("OLLAMA_MODEL") or "nomic-embed-text"
+    endpoints = ["/api/embeddings", "/v1/embeddings", "/embeddings"]
+    bodies = [
+        {"model": model, "prompt": text},
+        {"model": model, "input": text},
+    ]
+
+    errors: List[str] = []
+    for base in base_urls:
+        for ep in endpoints:
+            url = f"{base}{ep}"
+            for body in bodies:
+                try:
+                    resp = requests.post(url, json=body, timeout=60)
+                except Exception as e:
+                    errors.append(f"{url} POST error: {e}")
+                    continue
+                if resp.status_code == 404:
+                    errors.append(f"{url} 404")
+                    continue
+                try:
+                    resp.raise_for_status()
+                    data = resp.json()
+                except Exception as e:
+                    errors.append(f"{url} non-json or error: {e}")
+                    continue
+
+                vector: Optional[List[float]] = None
+                if isinstance(data, dict):
+                    if isinstance(data.get("embedding"), list):
+                        vector = data.get("embedding")
+                    elif isinstance(data.get("data"), list) and data.get("data"):
+                        first = data.get("data")[0]
+                        if isinstance(first, dict) and isinstance(first.get("embedding"), list):
+                            vector = first.get("embedding")
+                elif isinstance(data, list) and data:
+                    first = data[0]
+                    if isinstance(first, dict) and isinstance(first.get("embedding"), list):
+                        vector = first.get("embedding")
+
+                if vector and isinstance(vector, list):
+                    return vector
+
+                errors.append(f"{url} missing embedding")
+
+    raise RuntimeError(f"Ollama embed error. Tried bases: {base_urls}. Errors: {'; '.join(errors[:5])}")
+
+
+def ollama_embed_texts(texts: List[str], model: str | None = None, ollama_url: str | None = None) -> List[List[float]]:
+    """Embed multiple texts via Ollama; raises if any embedding fails."""
+    vectors: List[List[float]] = []
+    errors: List[str] = []
+    for t in texts:
+        try:
+            vectors.append(ollama_embed(t, model=model, ollama_url=ollama_url))
+        except Exception as e:
+            errors.append(str(e))
+    if len(vectors) != len(texts):
+        raise RuntimeError(f"Failed to embed {len(texts) - len(vectors)} texts. Errors: {'; '.join(errors[:3])}")
+    return vectors
+
+
 def load_documents_from_dir(dir_path: Path):
     docs = []
     try:
@@ -234,20 +315,15 @@ def load_documents_from_dir(dir_path: Path):
     return docs
 
 
-def index_documents_to_qdrant(documents, collection_name: str | None = None, qdrant_url: str | None = None, model_name: str = "all-MiniLM-L6-v2"):
+def index_documents_to_qdrant(documents, collection_name: str | None = None, qdrant_url: str | None = None, model_name: str = "nomic-embed-text"):
     if not documents:
         raise ValueError("No documents to index")
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=50)
     texts = text_splitter.split_documents(documents)
 
-    if SentenceTransformerEmbeddings is None:
-        raise RuntimeError("No embeddings implementation available")
-
-    embeddings = SentenceTransformerEmbeddings(model_name=model_name, model_kwargs={"device": "cpu"})
-
     contents = [getattr(d, 'page_content', '') for d in texts]
-    vectors = embeddings.embed_documents(contents)
+    vectors = ollama_embed_texts(contents, model=model_name)
 
     base_url = qdrant_url or os.getenv("QDRANT_URL", "http://localhost:6333")
     if QdrantClient is None:
@@ -319,7 +395,7 @@ def index_documents_to_qdrant(documents, collection_name: str | None = None, qdr
     if points:
         client.upsert(collection_name=collection_name, points=points)
 
-    return {"client": client, "collection_name": collection_name, "embeddings": embeddings}
+    return {"client": client, "collection_name": collection_name, "embeddings": None}
 
 
 def chunk_text(text: str, chunk_size: int = 800, chunk_overlap: int = 200) -> List[str]:
@@ -458,6 +534,10 @@ def embed_chunks(
         prefix = "query: " if is_query else "passage: "
         texts = [f"{prefix}{c}" for c in chunks]
 
+    # If a model name (string) is provided, use Ollama embeddings
+    if isinstance(model, str):
+        return ollama_embed_texts(texts, model=model)
+
     vectors = model.encode(texts, show_progress_bar=False, normalize_embeddings=normalize)
     try:
         import numpy as _np
@@ -542,7 +622,8 @@ def connect_vectorstore(collection_name: str | None = None, qdrant_url: str | No
             client.get_collection(collection_name)
     except Exception:
         try:
-            dim = embedding_dim or int(os.getenv("EMBEDDING_DIM", "0"))
+            dim_env = os.getenv("EMBEDDING_DIM", os.getenv("OLLAMA_EMBED_DIM", "0"))
+            dim = embedding_dim or int(dim_env)
         except Exception:
             dim = 0
         if dim > 0 and client is not None and rest_models is not None:
@@ -583,7 +664,7 @@ def create_ticket_in_qdrant(
     chat_history: list,
     question: str,
     qdrant_url: str | None = None,
-    model_name: str = "all-MiniLM-L6-v2"
+    model_name: str = "nomic-embed-text"
 ) -> dict:
     """
     Create a ticket in Qdrant tickets collection with automatic categorization and priority.
@@ -651,15 +732,9 @@ Reason: <brief reason>"""
     ticket_id = uuid4().hex
     timestamp = datetime.utcnow().isoformat()
     
-    # Create ticket embedding from question and chat history
-    if SentenceTransformerEmbeddings is None:
-        raise RuntimeError("No embeddings implementation available")
-    
-    embeddings = SentenceTransformerEmbeddings(model_name=model_name, model_kwargs={"device": "cpu"})
-    
-    # Combine question and recent chat for embedding
+    # Create ticket embedding from question and chat history using Ollama embeddings
     ticket_text = f"{question}\n\nChat context: {chat_summary}"
-    vector = embeddings.embed_query(ticket_text)
+    vector = ollama_embed(ticket_text, model=model_name)
     
     # Connect to Qdrant
     base_url = qdrant_url or os.getenv("QDRANT_URL", "http://localhost:6333")

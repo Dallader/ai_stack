@@ -19,20 +19,34 @@ const RETURNING_MESSAGE = "Witaj ponownie! W czym mogę Ci pomóc?";
 let sessionId = localStorage.getItem('wsb_session_id');
 let dataCollectionComplete = true;
 let pendingFile = null;
+let uploadInProgress = false;
+let lastUserMessage = null;
+let uploadStatusTimer = null;
+
+function setUploadStatus(message, revertMs = null) {
+  if (!uploadStatus) return;
+  if (uploadStatusTimer) {
+    clearTimeout(uploadStatusTimer);
+    uploadStatusTimer = null;
+  }
+  uploadStatus.textContent = message;
+  if (revertMs) {
+    uploadStatusTimer = setTimeout(() => {
+      uploadStatus.textContent = UPLOAD_HINT;
+      uploadStatusTimer = null;
+    }, revertMs);
+  }
+}
 
 // Ensure the status line shows allowed types on load
-if (uploadStatus) {
-  uploadStatus.textContent = UPLOAD_HINT;
-}
+setUploadStatus(UPLOAD_HINT);
 
 function resetPendingFile() {
   pendingFile = null;
   if (fileInput) {
     fileInput.value = "";
   }
-  if (uploadStatus) {
-    uploadStatus.textContent = UPLOAD_HINT;
-  }
+  setUploadStatus(UPLOAD_HINT);
   if (clearFileBtn) {
     clearFileBtn.classList.add("hidden");
   }
@@ -142,7 +156,7 @@ function handleFileSelection(event) {
 
   pendingFile = file;
   const sizeKb = Math.max(1, Math.round(file.size / 1024));
-  uploadStatus.textContent = `Wybrano: ${file.name} (${sizeKb} KB). Plik zostanie sprawdzony przy wysłaniu pytania.`;
+  setUploadStatus(`Wybrano: ${file.name} (${sizeKb} KB). Plik zostanie sprawdzony przy wysłaniu pytania.`);
   clearFileBtn?.classList.remove("hidden");
 }
 
@@ -152,6 +166,15 @@ async function uploadPendingFile() {
   }
 
   const file = pendingFile;
+  // Clear immediately to avoid sending the same file multiple times in one request
+  resetPendingFile();
+
+  return uploadFile(file);
+}
+
+async function uploadFile(file) {
+  uploadInProgress = true;
+
   const formData = new FormData();
   formData.append("file", file);
 
@@ -166,11 +189,13 @@ async function uploadPendingFile() {
     }
 
     const data = await response.json();
-    resetPendingFile();
+    setUploadStatus(UPLOAD_HINT);
     return { status: "uploaded", data };
   } catch (error) {
-    uploadStatus.textContent = "Błąd wysyłki. Spróbuj ponownie.";
+    setUploadStatus("Nie udało się wysłać pliku. Spróbuj ponownie.", 5000);
     return { status: "error", error };
+  } finally {
+    uploadInProgress = false;
   }
 }
 
@@ -178,10 +203,7 @@ async function sendMessage() {
   const message = userInput.value.trim();
   if (!message) return;
 
-  const uploadResult = await uploadPendingFile();
-  if (uploadResult.status === "error") {
-    return;
-  }
+  lastUserMessage = message;
 
   addMessage(message, "user", "", !dataCollectionComplete);
   userInput.value = "";
@@ -189,6 +211,26 @@ async function sendMessage() {
   userInput.disabled = true;
   clearBtn.disabled = true;
   const statusSeq = startStatusSequence();
+
+  // If a file is present, upload it first (blocking response generation)
+  const fileToUpload = pendingFile;
+  if (fileToUpload) {
+    addMessage("Przetwarzam załączony plik...", "assistant", AGENT_NAME, true);
+    resetPendingFile();
+    const uploadResult = await uploadFile(fileToUpload);
+    if (uploadResult.status === "error") {
+      clearStatusSequence(statusSeq);
+      if (statusSeq && statusSeq.msgDiv) {
+        statusSeq.msgDiv.remove();
+      }
+      addMessage("Nie udało się przetworzyć pliku. Spróbuj ponownie.", "assistant", "Error", false);
+      sendBtn.disabled = false;
+      userInput.disabled = false;
+      clearBtn.disabled = false;
+      userInput.focus();
+      return;
+    }
+  }
 
   try {
     const payload = { input: message };

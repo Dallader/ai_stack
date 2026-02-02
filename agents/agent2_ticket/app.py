@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from fastapi import Request
 from pydantic import BaseModel
+import re
 import os
 import logging
 import asyncio
@@ -41,7 +42,7 @@ TICKETS_COLLECTION = os.getenv("TICKETS_COLLECTION", "tickets")
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
 OLLAMA_EMBED_URL = os.getenv("OLLAMA_EMBED_URL", OLLAMA_URL)
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral:7b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
 
 OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
 OLLAMA_EMBED_DIM = int(os.getenv("OLLAMA_EMBED_DIM", "768"))
@@ -549,8 +550,72 @@ async def run_agent(request: RunRequest):
         wants_ticket = any(keyword in user_input.lower() for keyword in ticket_keywords)
 
         def missing_fields(u):
-            mapping = {"imię": "name", "nazwisko": "surname", "email": "email", "numer indeksu": "index_number"}
-            return [k for k, v in mapping.items() if not u.get(v)]
+            order = [
+                ("imię", "name"),
+                ("nazwisko", "surname"),
+                ("email", "email"),
+                ("numer indeksu", "index_number"),
+            ]
+            return [label for label, key in order if not u.get(key)]
+
+        def _update_user_data_from_input(text: str, data: Dict[str, Optional[str]]):
+            # Basic patterns to auto-fill when user writes everything in one message
+            email_match = re.search(r"[\w.+'-]+@[\w.-]+\.[a-zA-Z]{2,}", text)
+            if email_match and not data.get("email"):
+                data["email"] = email_match.group(0)
+
+            index_match = re.search(r"(?:indeks|index|nr indeksu|nr indexu)?\s*([0-9]{4,10})", text, re.IGNORECASE)
+            if index_match and not data.get("index_number"):
+                data["index_number"] = index_match.group(1)
+
+            # Heuristic: if text has two words and looks like a name, fill missing slots
+            if not data.get("name") or not data.get("surname"):
+                tokens = [t for t in re.split(r"\s+", text.strip()) if t]
+                if len(tokens) >= 2:
+                    if not data.get("name"):
+                        data["name"] = tokens[0].strip(",.")
+                    if not data.get("surname"):
+                        data["surname"] = tokens[1].strip(",.")
+
+        def _has_issue_context(sess) -> bool:
+            issue = sess.get("pending_issue") or ""
+            if issue and len(issue.strip()) >= 24:
+                return True
+            # Check if there is any prior non-data user message to serve as issue description
+            history = sess.get("chat_history", [])
+            for msg in history:
+                if msg.get("role") == "user" and not msg.get("is_data_collection"):
+                    if len(msg.get("content", "").strip()) >= 24:
+                        return True
+            return False
+
+        async def _try_rag_answer(issue_text: str):
+            """Attempt to answer via RAG before creating a ticket."""
+            if not issue_text or len(issue_text.strip()) < 12:
+                return None, []
+            try:
+                query_vector = encode_query(issue_text)
+                search_results = qdrant_client.query_points(
+                    collection_name=QDRANT_COLLECTION,
+                    query=query_vector,
+                    limit=5,
+                    score_threshold=0.2,
+                ).points
+                if not search_results:
+                    return None, []
+
+                context_parts = []
+                sources: List[str] = []
+                for result in search_results:
+                    context_parts.append(f"[Źródło: {result.payload['source']}]\n{result.payload['text']}")
+                    if result.payload['source'] not in sources:
+                        sources.append(result.payload['source'])
+
+                context = "\n\n---\n\n".join(context_parts)
+                answer = await generate_with_timeout(issue_text, context=context)
+                return answer, sources
+            except Exception:
+                return None, []
 
         if wants_ticket:
             session["ticket_intent"] = True
@@ -558,60 +623,129 @@ async def run_agent(request: RunRequest):
                 session["pending_issue"] = user_input
 
         if session.get("ticket_intent"):
-            # Try to extract any details from this message
-            parse_user_details_from_text(user_input, session["user_data"])
+            # Capture user's latest message into history for ticket context (regular so it counts as issue text)
+            session["chat_history"].append({"role": "user", "content": user_input, "is_data_collection": False})
 
-            if user_details_complete(session["user_data"]):
-                try:
-                    ensure_tickets_collection_exists()
-                    chat_history = session.get("chat_history", [])
-                    chat_summary = "\n".join([f"{msg.get('role', 'user')}: {msg.get('content', '')}" for msg in chat_history[-5:]])
-                    category, priority = categorize_ticket(user_input, chat_history)
-                    ticket_id = uuid4().hex
-                    timestamp = datetime.now().isoformat()
-                    issue_text = session.get("pending_issue") or user_input
-                    ticket_text = f"{issue_text}\n\nKontekst rozmowy: {chat_summary}"
-                    vector = encode_passages([ticket_text])[0]
+            # Try to auto-extract any details from free-form message
+            _update_user_data_from_input(user_input, session["user_data"])
 
-                    payload = {
-                        "ticket_id": ticket_id,
-                        "timestamp": timestamp,
-                        "status": "Open",
-                        "category": category,
-                        "priority": priority,
-                        "user_name": session["user_data"].get("name"),
-                        "user_surname": session["user_data"].get("surname"),
-                        "user_email": session["user_data"].get("email"),
-                        "user_index_number": session["user_data"].get("index_number"),
-                        "question": issue_text,
-                        "chat_history": chat_history,
-                        "ticket_text": ticket_text
-                    }
+            # Build/accumulate issue text
+            existing_issue = session.get("pending_issue") or ""
+            issue_text = (existing_issue + "\n" + user_input).strip() if existing_issue else user_input
+            session["pending_issue"] = issue_text
 
-                    point = rest_models.PointStruct(id=ticket_id, vector=vector, payload=payload)
-                    qdrant_client.upsert(collection_name=TICKETS_COLLECTION, points=[point])
+            # Try RAG answer before moving to ticket creation
+            rag_answer, rag_sources = await _try_rag_answer(issue_text)
+            if rag_answer:
+                response = (
+                    "Znalazłem odpowiedź w bazie wiedzy:\n\n"
+                    f"{rag_answer}\n\n"
+                    "Jeśli to nie rozwiązuje sprawy i chcesz zgłoszenie do BOS, napisz proszę ponownie, a zbierzemy dane."
+                )
+                session["ticket_intent"] = False
+                session["data_collection_complete"] = True
+                session["chat_history"].append({"role": "assistant", "content": response, "is_data_collection": False})
+                return {
+                    "response": response,
+                    "session_id": session_id,
+                    "data_collection_complete": True,
+                    "clear_previous": False,
+                    "sources": rag_sources,
+                }
 
-                    response = (
-                        " Zgłoszenie zostało utworzone!"\
-                        f"\n\n Numer zgłoszenia: {ticket_id[:8]}"\
-                        f"\n Kategoria: {category}"\
-                        f"\n⚡ Priorytet: {priority}"\
-                        f"\n Email: {session['user_data'].get('email')}"\
-                        f"\n🎓 Nr indeksu: {session['user_data'].get('index_number')}"\
-                        "\nTwoje zgłoszenie zostało przekazane do Biura Obsługi Studenta."
-                    )
-
-                    # Reset ticket intent state
-                    session["data_collection_complete"] = True
-                    session["ticket_intent"] = False
-                    session["pending_issue"] = None
-                except Exception as e:
-                    response = f"Przepraszam, wystąpił błąd podczas tworzenia zgłoszenia: {str(e)}"
-            else:
-                missing = missing_fields(session["user_data"])
-                response = "Aby utworzyć zgłoszenie, podaj proszę: " + ", ".join(missing)
+            # If no RAG answer and issue is too short, ask for more detail before collecting personal data
+            if len(issue_text.strip()) < 48:
+                response = (
+                    "Nie znalazłem jeszcze odpowiedzi. Opisz proszę dokładniej problem (kontekst, terminy, system). "
+                    "Po zebraniu opisu poproszę o dane do zgłoszenia."
+                )
                 session["data_collection_complete"] = False
-                session["chat_history"].append({"role": "user", "content": user_input, "is_data_collection": True})
+                session["chat_history"].append({"role": "assistant", "content": response, "is_data_collection": True})
+                return {
+                    "response": response,
+                    "session_id": session_id,
+                    "data_collection_complete": False,
+                    "clear_previous": False
+                }
+
+            missing = missing_fields(session["user_data"])
+
+            if missing:
+                prompts = {
+                    "imię": "Podaj proszę swoje imię.",
+                    "nazwisko": "Podaj proszę swoje nazwisko.",
+                    "email": "Podaj proszę swój email studencki.",
+                    "numer indeksu": "Podaj proszę numer indeksu (same cyfry).",
+                }
+                next_prompt = prompts.get(missing[0], "Podaj brakujące dane.")
+                response = "Zbieram informacje z rozmowy. Aby utworzyć zgłoszenie do BOS, potrzebuję jeszcze: " + ", ".join(missing) + f"\n{next_prompt}"
+                session["data_collection_complete"] = False
+                session["chat_history"].append({"role": "assistant", "content": response, "is_data_collection": True})
+                return {
+                    "response": response,
+                    "session_id": session_id,
+                    "data_collection_complete": False,
+                    "clear_previous": False
+                }
+
+            # All data present — proceed to create the ticket with status messages
+            try:
+                ensure_tickets_collection_exists()
+                chat_history = session.get("chat_history", [])
+                chat_summary = "\n".join([f"{msg.get('role', 'user')}: {msg.get('content', '')}" for msg in chat_history[-5:]])
+                category, priority = categorize_ticket(issue_text, chat_history)
+                ticket_id = uuid4().hex
+                timestamp = datetime.now().isoformat()
+                ticket_text = f"{issue_text}\n\nKontekst rozmowy: {chat_summary}"
+                vector = encode_passages([ticket_text])[0]
+
+                payload = {
+                    "ticket_id": ticket_id,
+                    "timestamp": timestamp,
+                    "status": "Open",
+                    "category": category,
+                    "priority": priority,
+                    "user_name": session["user_data"].get("name"),
+                    "user_surname": session["user_data"].get("surname"),
+                    "user_email": session["user_data"].get("email"),
+                    "user_index_number": session["user_data"].get("index_number"),
+                    "question": issue_text,
+                    "chat_history": chat_history,
+                    "ticket_text": ticket_text
+                }
+
+                point = rest_models.PointStruct(id=ticket_id, vector=vector, payload=payload)
+                qdrant_client.upsert(collection_name=TICKETS_COLLECTION, points=[point])
+
+                summary_lines = [
+                    "Zbieram informacje z rozmowy...",
+                    "Generuję zgłoszenie...",
+                    "\nPodsumowanie zgłoszenia:",
+                    f"- Numer: {ticket_id[:8]}",
+                    f"- Kategoria: {category}",
+                    f"- Priorytet: {priority}",
+                    f"- Imię i nazwisko: {session['user_data'].get('name')} {session['user_data'].get('surname')}",
+                    f"- Email: {session['user_data'].get('email')}",
+                    f"- Nr indeksu: {session['user_data'].get('index_number')}",
+                    f"- Opis: {issue_text}",
+                    "Twoje zgłoszenie zostało przekazane do Biura Obsługi Studenta.",
+                ]
+                response = "\n".join(summary_lines)
+
+                # Reset ticket intent state
+                session["data_collection_complete"] = True
+                session["ticket_intent"] = False
+                session["pending_issue"] = None
+                session["chat_history"].append({"role": "assistant", "content": response, "is_data_collection": True})
+
+                return {
+                    "response": response,
+                    "session_id": session_id,
+                    "data_collection_complete": True,
+                    "clear_previous": False
+                }
+            except Exception as e:
+                response = f"Przepraszam, wystąpił błąd podczas tworzenia zgłoszenia: {str(e)}"
                 session["chat_history"].append({"role": "assistant", "content": response, "is_data_collection": True})
                 return {
                     "response": response,

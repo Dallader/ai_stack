@@ -19,14 +19,6 @@ services:
       - OLLAMA_MODELS=/models
       - OLLAMA_HOST=0.0.0.0:11434
       - OLLAMA_ORIGINS=["*"]
-    deploy:
-      resources:
-        limits:
-          cpus: '9'
-          memory: 14G
-        reservations:
-          cpus: '9'
-          memory: 14G
 
   # Qdrant - Vector Database
   qdrant:
@@ -40,14 +32,6 @@ services:
       - qdrant_data:/qdrant/storage
     networks:
       - ai_network
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-        reservations:
-          cpus: '1'
-          memory: 1G
 
   # Open WebUI - Chat Interface
   open-webui:
@@ -64,14 +48,6 @@ services:
       - ai_network
     depends_on:
       - ollama
-    deploy:
-      resources:
-        limits:
-          cpus: '9'
-          memory: 15G
-        reservations:
-          cpus: '9'
-          memory: 15G
 
   # Node-RED - Flow Orchestration
   node-red:
@@ -83,14 +59,6 @@ services:
       - nodered_data:/data
     networks:
       - ai_network
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 256M
 
   # ==================== AGENTS ====================
 
@@ -107,14 +75,6 @@ services:
     depends_on:
       - ollama
       - qdrant
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 256M
 
   # Agent 2 - Ticket
   agent2_ticket:
@@ -147,14 +107,6 @@ services:
     depends_on:
       - ollama
       - qdrant
-    deploy:
-      resources:
-        limits:
-          cpus: '9'
-          memory: 15G
-        reservations:
-          cpus: '9'
-          memory: 15G
 
   # Agent 3 - Analytics
   agent3_analytics:
@@ -169,14 +121,6 @@ services:
     depends_on:
       - ollama
       - qdrant
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 256M
 
   # Agent 4 - BOS
   agent4_bos:
@@ -191,14 +135,6 @@ services:
     depends_on:
       - ollama
       - qdrant
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 256M
 
   # Agent 5 - Security
   agent5_security:
@@ -213,14 +149,6 @@ services:
     depends_on:
       - ollama
       - qdrant
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 256M
 
 # ==================== VOLUMES ====================
 volumes:
