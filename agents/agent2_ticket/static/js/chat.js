@@ -121,13 +121,13 @@ function clearDataCollectionMessages() {
   dataCollectionMsgs.forEach(msg => msg.remove());
 }
 
-function startStatusSequence() {
+function createStatusMessage(initialText = "Szukam informacji...") {
   const msgDiv = document.createElement("div");
   msgDiv.className = "message assistant";
 
   const contentDiv = document.createElement("div");
   contentDiv.className = "message-content";
-  contentDiv.textContent = "Szukam informacji...";
+  contentDiv.textContent = initialText;
 
   const metaDiv = document.createElement("div");
   metaDiv.className = "message-meta";
@@ -138,20 +138,14 @@ function startStatusSequence() {
   chatMessages.appendChild(msgDiv);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
-  const timers = [];
-  timers.push(setTimeout(() => {
-    contentDiv.textContent = "Analizuję zebrane informacje...";
-  }, 1800));
-  timers.push(setTimeout(() => {
-    contentDiv.textContent = "Generuję odpowiedź...";
-  }, 3600));
-
-  return { msgDiv, contentDiv, timers };
-}
-
-function clearStatusSequence(seq) {
-  if (!seq) return;
-  (seq.timers || []).forEach(t => clearTimeout(t));
+  return {
+    set: (text) => {
+      contentDiv.textContent = text;
+    },
+    remove: () => {
+      msgDiv.remove();
+    },
+  };
 }
 
 function handleFileSelection(event) {
@@ -218,14 +212,16 @@ async function sendMessage() {
   sendBtn.disabled = true;
   userInput.disabled = true;
   clearBtn.disabled = true;
-  let statusSeq = null;
+  let statusMsg = null;
 
   // If a file is present, upload it first (blocking response generation)
   const fileToUpload = pendingFile;
   if (fileToUpload) {
+    statusMsg = createStatusMessage("Przetwarzam załączony plik...");
     resetPendingFile();
     const uploadResult = await uploadFile(fileToUpload);
     if (uploadResult.status === "error") {
+      statusMsg?.remove();
       addMessage("Nie udało się przetworzyć pliku. Spróbuj ponownie.", "assistant", "Error", false);
       sendBtn.disabled = false;
       userInput.disabled = false;
@@ -233,9 +229,12 @@ async function sendMessage() {
       userInput.focus();
       return;
     }
+    statusMsg?.set("Szukam informacji w bazie...");
   }
 
-  statusSeq = startStatusSequence();
+  if (!statusMsg) {
+    statusMsg = createStatusMessage("Szukam informacji w bazie...");
+  }
 
   try {
     const payload = { input: message };
@@ -255,7 +254,9 @@ async function sendMessage() {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
+    statusMsg?.set("Analizuję informacje...");
     const data = await response.json();
+    statusMsg?.set("Generuję odpowiedź...");
     sessionId = data.session_id;
 
     // Save session to localStorage
@@ -273,10 +274,7 @@ async function sendMessage() {
       localStorage.setItem('wsb_data_complete', 'true');
     }
 
-    clearStatusSequence(statusSeq);
-    if (statusSeq && statusSeq.msgDiv) {
-      statusSeq.msgDiv.remove();
-    }
+    statusMsg?.remove();
 
     const isDataCollection = data.clear_previous ? false : !data.data_collection_complete;
 
@@ -294,7 +292,6 @@ async function sendMessage() {
     statusBar.classList.remove("error");
     statusText.textContent = `Ready - ${AGENT_NAME} (port ${AGENT_PORT})`;
   } catch (error) {
-    clearStatusSequence(statusSeq);
     let errorMsg = error.message;
     if (
       error.message.includes("Load failed") ||
@@ -302,15 +299,14 @@ async function sendMessage() {
     ) {
       errorMsg = `Cannot connect to agent. Please ensure the agent is running.`;
     }
-    if (statusSeq && statusSeq.contentDiv) {
-      statusSeq.contentDiv.textContent = errorMsg;
-    } else {
+    statusMsg?.set(errorMsg);
+    if (!statusMsg) {
       addMessage(errorMsg, "assistant", "Error");
     }
     statusBar.classList.add("error");
     statusText.textContent = `Connection failed`;
   } finally {
-    clearStatusSequence(statusSeq);
+    statusMsg?.remove();
     sendBtn.disabled = false;
     userInput.disabled = false;
     clearBtn.disabled = false;
