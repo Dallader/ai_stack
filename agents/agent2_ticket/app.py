@@ -42,7 +42,7 @@ TICKETS_COLLECTION = os.getenv("TICKETS_COLLECTION", "tickets")
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
 OLLAMA_EMBED_URL = os.getenv("OLLAMA_EMBED_URL", OLLAMA_URL)
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral:7b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral")
 
 OLLAMA_EMBED_MODEL = os.getenv("OLLAMA_EMBED_MODEL", "nomic-embed-text")
 OLLAMA_EMBED_DIM = int(os.getenv("OLLAMA_EMBED_DIM", "768"))
