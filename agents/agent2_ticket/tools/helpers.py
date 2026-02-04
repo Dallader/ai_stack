@@ -398,11 +398,28 @@ def index_documents_to_qdrant(documents, collection_name: str | None = None, qdr
     return {"client": client, "collection_name": collection_name, "embeddings": None}
 
 
-def chunk_text(text: str, chunk_size: int = 800, chunk_overlap: int = 200) -> List[str]:
-    """Split text into overlapping chunks for embedding."""
-    chunks: List[str] = []
+def chunk_text(
+    text: str,
+    chunk_size: int = 800,
+    chunk_overlap: int = 200,
+    *,
+    use_recursive: bool = False,
+) -> List[str]:
+    """Split text into overlapping chunks; optionally use RecursiveCharacterTextSplitter."""
     if not text:
-        return chunks
+        return []
+
+    if use_recursive:
+        splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        if hasattr(splitter, "split_text"):
+            return [c for c in splitter.split_text(text) if c.strip()]
+
+        docs = splitter.split_documents([
+            type("Document", (), {"page_content": text, "metadata": {}})()
+        ])
+        return [getattr(d, "page_content", "") for d in docs if getattr(d, "page_content", "").strip()]
+
+    chunks: List[str] = []
     step = max(1, chunk_size - chunk_overlap)
     for i in range(0, len(text), step):
         chunk = text[i:i + chunk_size]

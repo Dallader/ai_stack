@@ -6,6 +6,7 @@ from fastapi import Request
 from pydantic import BaseModel
 import re
 import os
+import json
 import logging
 import asyncio
 from pathlib import Path
@@ -35,6 +36,7 @@ INCOMING_DIR = BASE_DIR / "incoming"
 KNOWLEDGE_DIR = BASE_DIR / "knowledge"
 PROCESSED_DIR = BASE_DIR / "processed_documents"
 LOGS_DIR = BASE_DIR / "logs"
+SETTINGS_DIR = BASE_DIR / "settings"
 
 QDRANT_URL = os.getenv("QDRANT_URL", "http://qdrant:6333")
 QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "documents")
@@ -72,6 +74,17 @@ LLM_TIMEOUT_SECONDS = _parse_timeout(os.getenv("LLM_TIMEOUT_SECONDS"), _default_
 OLLAMA_NUM_PREDICT = _parse_positive_int(os.getenv("OLLAMA_NUM_PREDICT"), 768)
 OLLAMA_NUM_CTX = _parse_positive_int(os.getenv("OLLAMA_NUM_CTX"), 4096)
 
+LLM_OPTIONS = {
+    "temperature": 0.2,
+    "top_p": 0.9,
+    "top_k": 25,
+    "repeat_penalty": 1.1,
+    "num_predict": OLLAMA_NUM_PREDICT,
+    "num_ctx": OLLAMA_NUM_CTX,
+    "num_thread": 10,
+    "num_gpu": 1,
+}
+
 app = FastAPI(title="Agent WSB Merito API")
 
 # Mount static files and templates
@@ -81,7 +94,28 @@ templates = Jinja2Templates(directory="templates")
 VECTOR_SIZE = OLLAMA_EMBED_DIM
 qdrant_client = QdrantClient(url=QDRANT_URL)
 
+# Track the effective vector size returned by the embedding model
+_effective_vector_size = VECTOR_SIZE
+
 _documents_index_checked = False
+
+
+def _load_prompt_config() -> Dict:
+    cfg_path = SETTINGS_DIR / "prompt_config.json"
+    try:
+        with cfg_path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {
+            "system_instruction": (
+                "You are BOS Assistant, the official virtual support assistant for university students. "
+                "Be professional, calm, and supportive. Use only university documents; do not invent information."
+            ),
+            "critical_rules": [],
+        }
+
+
+PROMPT_CONFIG = _load_prompt_config()
 
 
 def _ensure_documents_indexed_once():
@@ -105,6 +139,26 @@ def _ensure_documents_indexed_once():
             load_and_index_documents()
         except Exception as e:
             logging.warning("Auto-indexing documents failed: %s", e)
+
+
+def _update_vector_size_from_embedding(vec: List[float]):
+    """Align Qdrant collections to the embedding dimension returned by the model."""
+    global VECTOR_SIZE, _effective_vector_size
+    if not vec:
+        return
+    detected = len(vec)
+    if detected != _effective_vector_size:
+        logging.info("Detected embedding dimension %s (was %s); aligning collections.", detected, _effective_vector_size)
+        _effective_vector_size = detected
+        VECTOR_SIZE = detected
+    try:
+        ensure_collection_exists(QDRANT_COLLECTION, vector_size=_effective_vector_size)
+    except Exception as e:
+        logging.warning("Failed to ensure documents collection with size %s: %s", _effective_vector_size, e)
+    try:
+        ensure_tickets_collection_exists(vector_size=_effective_vector_size)
+    except Exception as e:
+        logging.warning("Failed to ensure tickets collection with size %s: %s", _effective_vector_size, e)
 
 
 def ollama_embed(texts: List[str]) -> List[List[float]]:
@@ -134,6 +188,12 @@ def ollama_embed(texts: List[str]) -> List[List[float]]:
         if not vec:
             raise HTTPException(status_code=500, detail="Brak embeddingu w odpowiedzi Ollama")
         embeddings.append(vec)
+    if embeddings:
+        expected_len = len(embeddings[0])
+        for vec in embeddings:
+            if len(vec) != expected_len:
+                raise HTTPException(status_code=500, detail="Inconsistent embedding dimensions returned by model")
+        _update_vector_size_from_embedding(embeddings[0])
     return embeddings
 
 
@@ -142,7 +202,9 @@ def encode_passages(texts: List[str]) -> List[List[float]]:
 
 
 def encode_query(text: str) -> List[float]:
-    return ollama_embed([text])[0]
+    vec = ollama_embed([text])[0]
+    _update_vector_size_from_embedding(vec)
+    return vec
 
 
 async def generate_with_timeout(prompt: str, context: str = "", timeout: Optional[int] = LLM_TIMEOUT_SECONDS) -> str:
@@ -183,34 +245,39 @@ def ollama_generate(prompt: str, context: str = "") -> str:
     try:
         base_url = OLLAMA_URL.rstrip("/")
 
+        system_instruction = PROMPT_CONFIG.get("system_instruction", "")
+        critical_rules = PROMPT_CONFIG.get("critical_rules", []) or []
+
+        rules_block = "\n".join([f"- {r}" for r in critical_rules])
+        rules_text = f"\n\nKrytyczne zasady:\n{rules_block}" if rules_block else ""
+
         # Ground the prompt when context is present
         if context:
-            formatted_prompt = f"""Używając poniższych dokumentów, odpowiedz na pytanie studenta.
-
-Dokumenty:
-{context}
-
-Pytanie: {prompt}
-
-Odpowiedź: przygotuj logiczną i kompletną odpowiedź w 10-15 zdaniach (więcej jeśli potrzeba), bez urywania wątków, w języku pytania (jeśli nie rozpoznasz, użyj polskiego)."""
+            formatted_prompt = (
+                f"{system_instruction}{rules_text}\n\n"
+                "Użyj poniższych dokumentów, aby odpowiedzieć jako BOS Assistant (pracownik BOS)."
+                " Odpowiadaj tylko na podstawie treści dokumentów; jeśli czegoś brakuje, powiedz to wprost, zapytaj o doprecyzowanie,"
+                " a dopiero potem ewentualnie zaproponuj zgłoszenie do BOS.\n\n"
+                f"Dokumenty:\n{context}\n\n"
+                f"Pytanie: {prompt}\n\n"
+                "Odpowiedź: przygotuj logiczną, kompletną i czytelną odpowiedź (może być w punktach), w języku pytania"
+                " (jeśli nie rozpoznasz, użyj polskiego). Dodaj krótkie cytaty/referencje z dokumentów, gdy pomagają."
+            )
         else:
-            formatted_prompt = prompt
+            formatted_prompt = (
+                f"{system_instruction}{rules_text}\n\n"
+                "Odpowiadaj jako BOS Assistant. Korzystaj wyłącznie z dostępnych informacji; jeśli czegoś brakuje, powiedz to i poproś o szczegóły.\n\n"
+                f"Pytanie: {prompt}\n\n"
+                "Odpowiedź: przygotuj logiczną, kompletną i czytelną odpowiedź (może być w punktach), w języku pytania"
+                " (jeśli nie rozpoznasz, użyj polskiego)."
+            )
 
         # First try the /api/generate endpoint
         gen_payload = {
             "model": OLLAMA_MODEL,
             "prompt": formatted_prompt,
             "stream": False,
-            "options": {
-                "temperature": 0.2,
-                "top_p": 0.9,
-                "top_k": 25,
-                "repeat_penalty": 1.1,
-                "num_predict": OLLAMA_NUM_PREDICT,
-                "num_ctx": OLLAMA_NUM_CTX,
-                "num_thread": 10,
-                "num_gpu": 1,
-            },
+            "options": dict(LLM_OPTIONS),
         }
 
         gen_url = f"{base_url}/api/generate"
@@ -230,16 +297,7 @@ Odpowiedź: przygotuj logiczną i kompletną odpowiedź w 10-15 zdaniach (więce
                     {"role": "user", "content": formatted_prompt},
                 ],
                 "stream": False,
-                "options": {
-                    "temperature": 0.2,
-                    "top_p": 0.9,
-                    "top_k": 25,
-                    "repeat_penalty": 1.1,
-                    "num_predict": OLLAMA_NUM_PREDICT,
-                    "num_ctx": OLLAMA_NUM_CTX,
-                    "num_thread": 10,
-                    "num_gpu": 1,
-                },
+                "options": dict(LLM_OPTIONS),
             }
             chat_resp = requests.post(chat_url, json=chat_payload, timeout=OLLAMA_REQUEST_TIMEOUT)
             if chat_resp.status_code == 404:
@@ -271,10 +329,11 @@ Odpowiedź: przygotuj logiczną i kompletną odpowiedź w 10-15 zdaniach (więce
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ollama error: {str(e)}")
 
-def ensure_collection_exists(collection_name: str = QDRANT_COLLECTION, vector_size: int = VECTOR_SIZE):
+def ensure_collection_exists(collection_name: str = QDRANT_COLLECTION, vector_size: Optional[int] = None):
     """Ensure Qdrant collection exists with correct configuration."""
     try:
-        ensure_qdrant_collection(qdrant_client, collection_name, vector_size)
+        size = vector_size or VECTOR_SIZE
+        ensure_qdrant_collection(qdrant_client, collection_name, size)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Qdrant error: {str(e)}")
 
@@ -324,7 +383,10 @@ def load_and_index_documents() -> int:
     for doc in documents:
         doc_id = uuid4().hex
         category = categorize_text(doc["text"], CATEGORIES_PL, ollama_model=OLLAMA_MODEL, ollama_url=OLLAMA_URL)
-        chunks = chunk_text(doc["text"], chunk_size=800, chunk_overlap=200)
+        suffix = Path(doc["path"]).suffix.lower()
+        use_recursive = suffix in {".pdf", ".doc", ".docx"}
+        chunk_size = 1000 if use_recursive else 800
+        chunks = chunk_text(doc["text"], chunk_size=chunk_size, chunk_overlap=200, use_recursive=use_recursive)
         vectors = encode_passages(chunks)
         payload = {
             "doc_id": doc_id,
@@ -392,7 +454,9 @@ def ingest_uploaded_document(filename: str, data: bytes, uploaded_by: Optional[s
         }
 
     category = categorize_text(text, CATEGORIES_PL, ollama_model=OLLAMA_MODEL, ollama_url=OLLAMA_URL)
-    chunks = chunk_text(text, chunk_size=800, chunk_overlap=200)
+    use_recursive = file_ext in {".pdf", ".doc", ".docx"}
+    chunk_size = 1000 if use_recursive else 800
+    chunks = chunk_text(text, chunk_size=chunk_size, chunk_overlap=200, use_recursive=use_recursive)
     if not chunks:
         chunks = [text]
     vectors = encode_passages(chunks)
@@ -935,10 +999,11 @@ async def upload_and_index_document(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload and index error: {str(e)}")
 
-def ensure_tickets_collection_exists():
+def ensure_tickets_collection_exists(vector_size: Optional[int] = None):
     """Ensure tickets collection exists with correct vector size."""
     try:
-        ensure_qdrant_collection(qdrant_client, TICKETS_COLLECTION, VECTOR_SIZE)
+        size = vector_size or VECTOR_SIZE
+        ensure_qdrant_collection(qdrant_client, TICKETS_COLLECTION, size)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Qdrant tickets collection error: {str(e)}")
 
