@@ -354,6 +354,25 @@ def _iter_source_files(base_dir: Path):
         yield file_path, rel_path
 
 
+def _document_exists(path: str, origin: str) -> bool:
+    """Check if a document with the same path and origin already exists in Qdrant."""
+    if rest_models is None:
+        return False
+    try:
+        flt = rest_models.Filter(must=[
+            rest_models.FieldCondition(key="path", match=rest_models.MatchValue(value=path)),
+            rest_models.FieldCondition(key="origin", match=rest_models.MatchValue(value=origin)),
+        ])
+        points, _ = qdrant_client.scroll(
+            collection_name=QDRANT_COLLECTION,
+            scroll_filter=flt,
+            limit=1,
+        )
+        return bool(points)
+    except Exception:
+        return False
+
+
 def load_and_index_documents() -> int:
     """Load documents from known folders and index to Qdrant."""
     sources = [
@@ -366,6 +385,9 @@ def load_and_index_documents() -> int:
     documents = []
     allowed_ext = {".pdf", ".txt", ".md", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".xls", ".xlsx"}
 
+    # Ensure collection exists before we start duplicate checks
+    ensure_collection_exists(QDRANT_COLLECTION, VECTOR_SIZE)
+
     for base_dir, origin in sources:
         for file_path, rel_path in _iter_source_files(base_dir):
             if file_path.suffix.lower() not in allowed_ext:
@@ -374,6 +396,9 @@ def load_and_index_documents() -> int:
                 data = file_path.read_bytes()
                 text = extract_text_from_upload(file_path.name, data)
                 if not text.strip():
+                    continue
+                # Skip if document already ingested for this origin/path
+                if _document_exists(str(file_path), origin):
                     continue
                 documents.append({
                     "text": text,
