@@ -443,7 +443,8 @@ def load_and_index_documents() -> int:
                 continue
 
     if not documents:
-        raise HTTPException(status_code=404, detail="No documents found to index")
+        logging.info("No new documents to index (all existing or none present in sources).")
+        return 0
 
     ensure_collection_exists(QDRANT_COLLECTION, VECTOR_SIZE)
 

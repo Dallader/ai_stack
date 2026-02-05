@@ -13,7 +13,10 @@ from app import ensure_collection_exists, load_and_index_documents
 def main() -> None:
     ensure_collection_exists()
     chunks = load_and_index_documents()
-    print(f"Indexed {chunks} chunks into collection")
+    if chunks:
+        print(f"Indexed {chunks} chunks into collection")
+    else:
+        print("No new documents to index (all existing or no files found)")
 
 
 if __name__ == "__main__":
