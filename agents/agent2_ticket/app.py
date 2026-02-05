@@ -373,6 +373,38 @@ def _document_exists(path: str, origin: str) -> bool:
         return False
 
 
+async def _bootstrap_collections_and_documents():
+    """Create collections if missing and auto-index documents on empty startup."""
+    try:
+        ensure_collection_exists()
+    except Exception as e:
+        logging.warning("Failed to ensure documents collection: %s", e)
+    try:
+        ensure_tickets_collection_exists()
+    except Exception as e:
+        logging.warning("Failed to ensure tickets collection: %s", e)
+
+    needs_index = False
+    try:
+        info = qdrant_client.get_collection(QDRANT_COLLECTION)
+        points_count = getattr(info, "points_count", None)
+        try:
+            points_count = int(points_count) if points_count is not None else None
+        except Exception:
+            points_count = None
+        needs_index = not points_count
+    except Exception:
+        # Collection missing or query failed — treat as empty
+        needs_index = True
+
+    if needs_index:
+        try:
+            # Run indexing off the event loop to avoid blocking startup
+            await asyncio.to_thread(load_and_index_documents)
+        except Exception as e:
+            logging.warning("Auto-index on startup failed: %s", e)
+
+
 def load_and_index_documents() -> int:
     """Load documents from known folders and index to Qdrant."""
     sources = [
@@ -533,7 +565,7 @@ async def startup_event():
     """Initialize on startup"""
     for p in [DOCS_DIR, INCOMING_DIR, KNOWLEDGE_DIR, PROCESSED_DIR, LOGS_DIR]:
         p.mkdir(parents=True, exist_ok=True)
-    ensure_collection_exists()
+    await _bootstrap_collections_and_documents()
     print(f"Connected to Qdrant at {QDRANT_URL}")
     print(f"Using collection: {QDRANT_COLLECTION}")
     print(f"Ollama URL: {OLLAMA_URL}")
