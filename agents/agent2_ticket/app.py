@@ -9,6 +9,7 @@ import os
 import json
 import logging
 import asyncio
+import time
 from pathlib import Path
 from typing import List, Dict, Optional
 import requests
@@ -73,6 +74,11 @@ _default_llm_timeout = None if OLLAMA_REQUEST_TIMEOUT is None else OLLAMA_REQUES
 LLM_TIMEOUT_SECONDS = _parse_timeout(os.getenv("LLM_TIMEOUT_SECONDS"), _default_llm_timeout)
 OLLAMA_NUM_PREDICT = _parse_positive_int(os.getenv("OLLAMA_NUM_PREDICT"), 768)
 OLLAMA_NUM_CTX = _parse_positive_int(os.getenv("OLLAMA_NUM_CTX"), 4096)
+OLLAMA_EMBED_MAX_RETRIES = _parse_positive_int(os.getenv("OLLAMA_EMBED_MAX_RETRIES"), 3)
+try:
+    OLLAMA_EMBED_RETRY_BACKOFF = float(os.getenv("OLLAMA_EMBED_RETRY_BACKOFF", "1.5"))
+except (TypeError, ValueError):
+    OLLAMA_EMBED_RETRY_BACKOFF = 1.5
 
 LLM_OPTIONS = {
     "temperature": 0.2,
@@ -162,37 +168,93 @@ def _update_vector_size_from_embedding(vec: List[float]):
 
 
 def ollama_embed(texts: List[str]) -> List[List[float]]:
-    """Embed a list of texts using Ollama's /api/embeddings endpoint."""
-    embeddings: List[List[float]] = []
+    """Embed texts with retries and fallbacks so ingestion doesn't stall on a bad chunk."""
+    raw_embeddings: List[Optional[List[float]]] = []
     base_url = OLLAMA_EMBED_URL.rstrip("/")
     url = f"{base_url}/api/embeddings"
-    for t in texts:
-        payload = {"model": OLLAMA_EMBED_MODEL, "prompt": t}
-        try:
-            resp = requests.post(url, json=payload, timeout=OLLAMA_REQUEST_TIMEOUT)
-            resp.raise_for_status()
-        except requests.exceptions.HTTPError as http_err:
-            status = http_err.response.status_code if http_err.response else None
-            if status == 404:
-                raise HTTPException(
-                    status_code=503,
-                    detail=(
-                        "Endpoint /api/embeddings nie jest dostępny w usłudze Ollama. "
-                        "Zaktualizuj obraz Ollama do najnowszej wersji i upewnij się, że model embeddingów jest pobrany."
-                    ),
-                )
-            raise
+    effective_dim: Optional[int] = None
 
-        data = resp.json()
-        vec = data.get("embedding")
-        if not vec:
-            raise HTTPException(status_code=500, detail="Brak embeddingu w odpowiedzi Ollama")
+    for idx, t in enumerate(texts):
+        last_err: Optional[Exception] = None
+        for attempt in range(1, OLLAMA_EMBED_MAX_RETRIES + 1):
+            payload = {"model": OLLAMA_EMBED_MODEL, "prompt": t}
+            try:
+                resp = requests.post(url, json=payload, timeout=OLLAMA_REQUEST_TIMEOUT)
+                resp.raise_for_status()
+                data = resp.json()
+                vec = data.get("embedding")
+                if not vec:
+                    raise HTTPException(status_code=500, detail="Brak embeddingu w odpowiedzi Ollama")
+                raw_embeddings.append(vec)
+                if effective_dim is None:
+                    effective_dim = len(vec)
+                break
+            except requests.exceptions.HTTPError as http_err:
+                status = http_err.response.status_code if http_err.response else None
+                if status == 404:
+                    raise HTTPException(
+                        status_code=503,
+                        detail=(
+                            "Endpoint /api/embeddings nie jest dostępny w usłudze Ollama. "
+                            "Zaktualizuj obraz Ollama do najnowszej wersji i upewnij się, że model embeddingów jest pobrany."
+                        ),
+                    )
+                last_err = http_err
+                logging.warning(
+                    "Embedding failed for chunk %s/%s (attempt %s/%s): %s",
+                    idx + 1,
+                    len(texts),
+                    attempt,
+                    OLLAMA_EMBED_MAX_RETRIES,
+                    http_err,
+                )
+            except requests.exceptions.Timeout as timeout_err:
+                last_err = timeout_err
+                logging.warning(
+                    "Embedding timeout for chunk %s/%s (attempt %s/%s)",
+                    idx + 1,
+                    len(texts),
+                    attempt,
+                    OLLAMA_EMBED_MAX_RETRIES,
+                )
+            except Exception as e:
+                last_err = e
+                logging.warning(
+                    "Embedding error for chunk %s/%s (attempt %s/%s): %s",
+                    idx + 1,
+                    len(texts),
+                    attempt,
+                    OLLAMA_EMBED_MAX_RETRIES,
+                    e,
+                )
+
+            time.sleep(OLLAMA_EMBED_RETRY_BACKOFF * attempt)
+        else:
+            logging.error(
+                "Skipping chunk %s/%s after %s failed attempts: %s",
+                idx + 1,
+                len(texts),
+                OLLAMA_EMBED_MAX_RETRIES,
+                last_err,
+            )
+            raw_embeddings.append(None)
+
+    if effective_dim is None:
+        effective_dim = _effective_vector_size or VECTOR_SIZE or OLLAMA_EMBED_DIM
+
+    embeddings: List[List[float]] = []
+    for vec in raw_embeddings:
+        if vec is None:
+            embeddings.append([0.0] * effective_dim)
+            continue
+        if len(vec) != effective_dim:
+            if len(vec) < effective_dim:
+                vec = vec + [0.0] * (effective_dim - len(vec))
+            else:
+                vec = vec[:effective_dim]
         embeddings.append(vec)
+
     if embeddings:
-        expected_len = len(embeddings[0])
-        for vec in embeddings:
-            if len(vec) != expected_len:
-                raise HTTPException(status_code=500, detail="Inconsistent embedding dimensions returned by model")
         _update_vector_size_from_embedding(embeddings[0])
     return embeddings
 
