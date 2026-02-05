@@ -387,7 +387,17 @@ def index_documents_to_qdrant(documents, collection_name: str | None = None, qdr
 
     points = []
     for i, vec in enumerate(vectors):
-        payload = {"text": contents[i], "source": getattr(texts[i], 'metadata', {}).get('source')}
+        # Categorize each chunk using the BOS categories to keep Qdrant payloads consistent
+        try:
+            category = categorize_text(contents[i], CATEGORIES_PL)
+        except Exception:
+            category = CATEGORIES_PL[-1]
+
+        payload = {
+            "text": contents[i],
+            "source": getattr(texts[i], 'metadata', {}).get('source'),
+            "category": category,
+        }
         if rest_models is not None:
             point = rest_models.PointStruct(id=uuid4().hex, vector=vec, payload=payload)
             points.append(point)
