@@ -337,6 +337,23 @@ def ensure_collection_exists(collection_name: str = QDRANT_COLLECTION, vector_si
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Qdrant error: {str(e)}")
 
+
+def _iter_source_files(base_dir: Path):
+    """Yield (absolute_path, relative_path) for all files under base_dir."""
+    if not base_dir.exists():
+        return
+    for file_path in base_dir.rglob("*"):
+        if not file_path.is_file():
+            continue
+        if file_path.name.startswith("."):
+            continue
+        try:
+            rel_path = file_path.relative_to(base_dir)
+        except Exception:
+            rel_path = file_path.name
+        yield file_path, rel_path
+
+
 def load_and_index_documents() -> int:
     """Load documents from known folders and index to Qdrant."""
     sources = [
@@ -350,14 +367,8 @@ def load_and_index_documents() -> int:
     allowed_ext = {".pdf", ".txt", ".md", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".xls", ".xlsx"}
 
     for base_dir, origin in sources:
-        if not base_dir.exists():
-            continue
-        for file_path in base_dir.rglob("*"):
-            if not file_path.is_file():
-                continue
+        for file_path, rel_path in _iter_source_files(base_dir):
             if file_path.suffix.lower() not in allowed_ext:
-                continue
-            if file_path.name.startswith("."):
                 continue
             try:
                 data = file_path.read_bytes()
@@ -366,7 +377,7 @@ def load_and_index_documents() -> int:
                     continue
                 documents.append({
                     "text": text,
-                    "source": str(file_path.name),
+                    "source": str(rel_path),
                     "path": str(file_path),
                     "origin": origin,
                 })
