@@ -6,8 +6,8 @@ services:
       - "8006:8000"
     networks:
       - ai_network
-    env_file:
-      - .env
+    # env_file:
+    #   - .env
     volumes:
       - ./documents/knowledge:/app/documents/knowledge
       - ./documents/logs:/app/documents/logs
