@@ -16,18 +16,30 @@ from qdrant_client.http.models import PointStruct
 from tools.ticket import Ticket
 from tools.tools import *
 
-# Directories
-BASE_DIR = Path(__file__).parent
-## CSS file directory
-CSS_FILE = BASE_DIR / "static" / "css" / "main.css"
-## Documents directories
-DOCS_DIR = BASE_DIR / "documents"
-KNOWLEDGE_DIR = DOCS_DIR / "knowledge"
-LOGS_DIR = DOCS_DIR / "logs"
-UPLOADS_DIR = DOCS_DIR / "uploads"
-PROCESSED_DIR = DOCS_DIR / "processed"
-## Settings directory (json files)
-SETTINGS_DIR = BASE_DIR / "settings"
+# Debug check
+DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1", "yes")
+
+if DEBUG:
+    # Directories
+    BASE_DIR = Path(__file__).parent
+    ## CSS file directory
+    CSS_FILE = BASE_DIR / "static" / "css" / "main.css"
+    ## Documents directories
+    DOCS_DIR = BASE_DIR / "documents"
+    KNOWLEDGE_DIR = DOCS_DIR / "knowledge"
+    LOGS_DIR = DOCS_DIR / "logs"
+    UPLOADS_DIR = DOCS_DIR / "uploads"
+    PROCESSED_DIR = DOCS_DIR / "processed"
+    ## Settings directory (json files)
+    SETTINGS_DIR = BASE_DIR / "settings"
+else:
+    # Use container-mounted paths or environment variables
+    SETTINGS_DIR = "/app/settings"
+    KNOWLEDGE_DIR = "/app/documents/knowledge"
+    LOGS_DIR = "/app/documents/logs"
+    UPLOADS_DIR = "/app/documents/uploads"
+    PROCESSED_DIR = "/app/documents/processed"
+    CSS_FILE =  "/app/static/css/main.css"
 
 # Read .env file and set the variables
 load_dotenv()
@@ -40,8 +52,8 @@ CLASSIFYING_MODEL_NAME = os.getenv("CLASSIFYING_MODEL_NAME")
 EMBEDING_MODEL_NAME = os.getenv("EMBEDING_MODEL_NAME")
 #QDRANT_URL = os.getenv("QDRANT_URL") or st.secrets["QDRANT_URL"]
 #QDRANT_API_KEY = os.getenv("QDRANT_API_KEY") or st.secrets["QDRANT_API_KEY"]
-# Env check
-DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1", "yes")
+# Sidebar check
+SIDEBAR = os.getenv("SIDEBAR", "False").lower() in ("true", "1", "yes")
 
 # Set the OpenAI API key in the os
 os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
@@ -165,7 +177,7 @@ with st.sidebar:
         # Reest the page
         st.rerun()
 
-    if DEBUG:
+    if SIDEBAR:
         st.divider() 
 
         # Qdrant Management
