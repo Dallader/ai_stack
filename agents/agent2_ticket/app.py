@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import PointStruct
 # Tooling
-from tools.ticket import Ticket
 from tools.tools import *
 
 # Debug check

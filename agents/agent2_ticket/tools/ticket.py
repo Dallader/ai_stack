@@ -1,18 +1,27 @@
 import uuid
 import json
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Dict, Any
 from openai import OpenAI
 from pathlib import Path
 
-# Path to the files
-SETTINGS_DIR = Path("/app/settings")
-CATEGORIES_FILE = SETTINGS_DIR / "categories.json"
-PRIORITIES_FILE = SETTINGS_DIR / "priorities.json"
-DEPARTMENTS_FILE = SETTINGS_DIR / "departments.json"
+# Debug check
+DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1", "yes")
 
-# Read all necessary files
+if DEBUG: 
+    # Ścieżki do plików settings
+    BASE_DIR = Path(__file__).parent.parent
+    CATEGORIES_FILE = BASE_DIR / "settings" / "categories.json"
+    PRIORITIES_FILE = BASE_DIR / "settings" / "priorities.json"
+    DEPARTMENTS_FILE = BASE_DIR / "settings" / "departments.json"
+else:
+    CATEGORIES_FILE = "/app/settings/categories.json"
+    PRIORITIES_FILE = "/app/settings/priorities.json"
+    DEPARTMENTS_FILE = "/app/settings/departments.json"
+
+# Wczytaj kategorie i priorytety
 with open(CATEGORIES_FILE, "r", encoding="utf-8") as f:
     categories_list = json.load(f)["categories"]
 
@@ -93,6 +102,7 @@ def assign_category_and_priority(client: OpenAI, model_name, conversation_contex
         instructions=system_prompt
     )
 
+    # Odczytaj JSON z odpowiedzi
     try:
         output_json = json.loads(response.output_text)
         category = output_json.get("category", "Pozostałe dokumenty")
