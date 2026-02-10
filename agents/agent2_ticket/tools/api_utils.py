@@ -1,5 +1,6 @@
 from typing import Any, List, Dict
 from .llm_utils import build_system_prompt
+from .api_utils import embed_text
 
 def build_input_parts(text: str, images: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
@@ -48,5 +49,4 @@ def embed_image(client, embedding_model_name, image_path) -> List[float]:
     """
     Embed image as pseudo-text using filename.
     """
-    from .api_utils import embed_text
     return embed_text(client, embedding_model_name, f"Image: {image_path.name}")

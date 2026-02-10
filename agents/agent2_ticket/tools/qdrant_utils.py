@@ -42,7 +42,8 @@ def ensure_collections_exist(qdrant_client, collections=None, vector_size=1536, 
         dict: {"created": [...], "already_exist": [...]}
     """
     if collections is None:
-        collections = ["Documents", "Knowledge", "Processed", "Tickets"]
+        #collections = ["Documents", "Knowledge", "Processed", "Tickets"]
+        collections = ["Documents", "Tickets"]
 
     # Get current collections in Qdrant
     existing_collections = [c.name for c in qdrant_client.get_collections().collections]
@@ -93,13 +94,15 @@ def not_imported_files(qdrant_client, knowledge_dir, collection_name="Documents"
     not_imported = all_hashes - imported_hashes
     return len(not_imported)
 
-def get_qdrant_collection_summary(qdrant_url, qdrant_api_key):
+#def get_qdrant_collection_summary(qdrant_url, qdrant_api_key):
+def get_qdrant_collection_summary(qdrant_url):
     """
     Fetch summary info for all Qdrant collections and sort in custom order:
     Documents, Knowledge, Processed, Tickets
     """
     try:
-        qdrant = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
+        #qdrant = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
+        qdrant = QdrantClient(url=qdrant_url)
         summary_list = []
         
         for coll_desc in qdrant.get_collections().collections:
@@ -199,7 +202,6 @@ def import_and_index_documents_qdrant(qdrant_client, client, embedding_model_nam
             elif suffix == ".pdf":
                 text = extract_text_from_pdf(file_path)
             elif suffix == ".docx":
-                import docx
                 doc = docx.Document(str(file_path))
                 text = "\n".join([p.text for p in doc.paragraphs])
             elif suffix in [".png", ".jpg", ".jpeg", ".webp"]:

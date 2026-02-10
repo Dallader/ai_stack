@@ -1,9 +1,9 @@
+import uuid
+import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Dict, Any
-import uuid
 from openai import OpenAI
-import json
 from pathlib import Path
 
 # Ścieżki do plików settings
@@ -90,7 +90,6 @@ def assign_category_and_priority(client: OpenAI, model_name, conversation_contex
     )
 
     # Odczytaj JSON z odpowiedzi
-    import json
     try:
         output_json = json.loads(response.output_text)
         category = output_json.get("category", "Pozostałe dokumenty")

@@ -53,7 +53,8 @@ QDRANT_URL = os.getenv("QDRANT_URL", "http://qdrant:6333")
 #qdrant_client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
 qdrant_client = QdrantClient(url=QDRANT_URL)
 # Ensure required collections exist
-collections_to_check = ["Documents", "Knowledge", "Processed", "Tickets"]
+#collections_to_check = ["Documents", "Knowledge", "Processed", "Tickets"]
+collections_to_check = ["Documents", "Tickets"]
 result = ensure_collections_exist(qdrant_client, collections_to_check)
 
 # Load css file to override streamlit styles
@@ -87,7 +88,8 @@ category_objects = [Category(name) for name in categories_list["categories"]]
 # Get knowledge 
 knowledge_not_imported = not_imported_files(qdrant_client, KNOWLEDGE_DIR) 
 # Get Qdrant collections information
-qdrant_collections_info = get_qdrant_collection_summary(QDRANT_URL, QDRANT_API_KEY)
+#qdrant_collections_info = get_qdrant_collection_summary(QDRANT_URL, QDRANT_API_KEY)
+qdrant_collections_info = get_qdrant_collection_summary(QDRANT_URL)
 
 # App configurations
 st.set_page_config(
@@ -97,10 +99,10 @@ st.set_page_config(
 )
 
 # Add title to the app
-st.title("AI RAG Agent")
+st.title("WSB RAG Agent")
 
 # Add a description to the ap
-st.markdown("**Your inteligent AI Assistant powered by GPT-5 and RAG technology**")
+st.markdown("**Your inteligent WSB Assistant powered by GPT-5 and RAG technology**")
 st.divider()
 
 # Add a collapsible section
@@ -140,7 +142,8 @@ if not MODEL_NAME:
     st.warning("Model name is not set. Please set MODEL_NAME in the environment")
 if not EMBEDING_MODEL_NAME:
     st.warning("Embedding model name is not set. Please set EMBEDING_MODEL_NAME in the environment")
-if not QDRANT_URL or not QDRANT_API_KEY:
+#if not QDRANT_URL or not QDRANT_API_KEY:
+if not QDRANT_URL:
     st.warning("Qdrant connection is not set. Please set QDRANT_URL and QDRANT_API_KEY in the environment")
 
 # Store the previous response id
@@ -179,11 +182,11 @@ with st.sidebar:
             st.markdown(f"**Collection:** {coll['name']}")
             st.markdown(f"- Status: {coll['status']}")
             st.markdown(f"- Points: {coll['points']}")
-            st.markdown(f"- Segments: {coll['shards']}")
-            st.markdown(f"- Replicas: {coll['replicas']}")
-            st.markdown(f"- Vector Field: {coll['vector_field']}")
-            st.markdown(f"- Vector Size: {coll['vector_size']}")
-            st.markdown(f"- Distance: {coll['distance']}")
+            #t.markdown(f"- Segments: {coll['shards']}")
+            #st.markdown(f"- Replicas: {coll['replicas']}")
+            #st.markdown(f"- Vector Field: {coll['vector_field']}")
+            #st.markdown(f"- Vector Size: {coll['vector_size']}")
+            #st.markdown(f"- Distance: {coll['distance']}")
             st.divider()
             
         st.title("Qdrant Category Viewer")
