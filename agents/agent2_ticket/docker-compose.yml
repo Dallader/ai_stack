@@ -6,26 +6,13 @@ services:
       - "8006:8000"
     networks:
       - ai_network
-    environment:
-      - QDRANT_COLLECTION=documents
-      - TICKETS_COLLECTION=tickets
-      - QDRANT_URL=http://qdrant:6333
-      - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_MODEL=mistral
-      - OLLAMA_EMBED_MODEL=nomic-embed-text
-      - OLLAMA_EMBED_DIM=768
-      - OLLAMA_EMBED_URL=http://ollama:11434
-      - TRANSFORMERS_VERBOSITY=error
-      - HF_HUB_DISABLE_PROGRESS_BARS=1
-      - TQDM_DISABLE=1
-      - TOKENIZERS_PARALLELISM=false
-      - SENTENCE_TRANSFORMERS_LOG_LEVEL=error
+    env_file:
+      - .env
     volumes:
-      - ./agents/agent2_ticket/documents:/app/documents
-      - ./agents/agent2_ticket/incoming:/app/incoming
-      - ./agents/agent2_ticket/knowledge:/app/knowledge
-      - ./agents/agent2_ticket/processed_documents:/app/processed_documents
-      - ./agents/agent2_ticket/logs:/app/logs
+      - ./documents/knowledge:/app/documents/knowledge
+      - ./documents/logs:/app/documents/logs
+      - ./documents/processed:/app/documents/processed
+      - ./documents/uploads:/app/documents/uploads
 
 networks:
   ai_network:
