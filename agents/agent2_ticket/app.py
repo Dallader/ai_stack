@@ -33,11 +33,11 @@ SETTINGS_DIR = BASE_DIR / "settings"
 load_dotenv()
 
 # Retrive the credentials
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or st.secrets["OPENAI_API_KEY"]
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID") or st.secrets["VECTOR_STORE_ID"]
-MODEL_NAME = os.getenv("MODEL_NAME") or st.secrets["MODEL_NAME"]
-CLASSIFYING_MODEL_NAME = os.getenv("CLASSIFYING_MODEL_NAME") or st.secrets["CLASSIFYING_MODEL_NAME"]
-EMBEDING_MODEL_NAME = os.getenv("EMBEDING_MODEL_NAME") or st.secrets["EMBEDING_MODEL_NAME"]
+MODEL_NAME = os.getenv("MODEL_NAME")
+CLASSIFYING_MODEL_NAME = os.getenv("CLASSIFYING_MODEL_NAME")
+EMBEDING_MODEL_NAME = os.getenv("EMBEDING_MODEL_NAME")
 #QDRANT_URL = os.getenv("QDRANT_URL") or st.secrets["QDRANT_URL"]
 #QDRANT_API_KEY = os.getenv("QDRANT_API_KEY") or st.secrets["QDRANT_API_KEY"]
 # Env check
