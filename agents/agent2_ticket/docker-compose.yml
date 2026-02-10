@@ -13,11 +13,6 @@ services:
       EMBEDING_MODEL_NAME: "${EMBEDING_MODEL_NAME}"
       DEBUG: "${DEBUG}"
       SIDEBAR: "${SIDEBAR}"
-    volumes:
-      - ./documents/knowledge:/app/documents/knowledge
-      - ./documents/logs:/app/documents/logs
-      - ./documents/processed:/app/documents/processed
-      - ./documents/uploads:/app/documents/uploads
 
 networks:
   ai_network:
