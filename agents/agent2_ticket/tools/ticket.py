@@ -7,7 +7,7 @@ from openai import OpenAI
 from pathlib import Path
 
 # Path to the files
-SETTINGS_DIR = "/app/settings/"
+SETTINGS_DIR = Path("/app/settings")
 CATEGORIES_FILE = SETTINGS_DIR / "categories.json"
 PRIORITIES_FILE = SETTINGS_DIR / "priorities.json"
 DEPARTMENTS_FILE = SETTINGS_DIR / "departments.json"
