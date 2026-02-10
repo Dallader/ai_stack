@@ -282,7 +282,6 @@ if prompt is not None:
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             try:
-                # Wywołanie modelu LLM
                 response = call_responses_api(
                     system_prompt=system_prompt,
                     client=client,
@@ -296,32 +295,34 @@ if prompt is not None:
                 )
 
                 output_text = get_text_output(response)
+                
+                # Check if user need to create a ticket
+                create_ticket = should_create_ticket(prompt, output_text)
+                
                 st.markdown(output_text)
                 st.session_state.messages.append({"role": "assistant", "content": output_text})
 
-                # --- Inteligentne tworzenie ticketu w czacie ---
-                if st.session_state.get("ticket_suggestion", False):
+                if create_ticket:
                     ticket_data = {
-                        "first_name": st.session_state.user_first_name,
-                        "last_name": st.session_state.user_last_name,
-                        "email": st.session_state.user_email,
-                        "index_number": st.session_state.user_index,
-                        "description": output_text
+                        "first_name": st.session_state.get("user_first_name", "Brak"),
+                        "last_name": st.session_state.get("user_last_name", "Brak"),
+                        "email": st.session_state.get("user_email", "brak@email.pl"),
+                        "index_number": st.session_state.get("user_index", "Brak"),
+                        "description": prompt  # ⬅️ WAŻNE: treść OD UŻYTKOWNIKA
                     }
 
                     ticket_info = interactive_ticket_creation(
                         qdrant_client=qdrant_client,
                         openai_client=client,
                         model_name=MODEL_NAME,
-                        embedding_vector=None,
                         ticket_data=ticket_data,
                         interactive=False
                     )
 
-                    st.success(f"✅ Ticket został utworzony automatycznie! ID: {ticket_info['ticket_id']}")
-                    st.info(f"Tytuł: {ticket_info['title']} | Kategoria: {ticket_info['category']}")
+                    st.success(f"Ticket utworzony! ID: {ticket_info['ticket_id']}")
+                    st.info(f"Kategoria: {ticket_info['category']}")
+                    st.stop()
 
-                # Aktualizacja poprzedniego ID odpowiedzi
                 if hasattr(response, "id"):
                     st.session_state.previous_response_id = response.id
 
