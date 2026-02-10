@@ -11,7 +11,8 @@ services:
       MODEL_NAME: "${MODEL_NAME}"
       CLASSIFYING_MODEL_NAME: "${CLASSIFYING_MODEL_NAME}"
       EMBEDING_MODEL_NAME: "${EMBEDING_MODEL_NAME}"
-      DEBUG: "${DEBUG:-False}"
+      DEBUG: "${DEBUG}"
+      SIDEBAR: "${SIDEBAR}"
     volumes:
       - ./documents/knowledge:/app/documents/knowledge
       - ./documents/logs:/app/documents/logs
