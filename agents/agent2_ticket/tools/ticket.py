@@ -8,9 +8,9 @@ from pathlib import Path
 
 # Path to the files
 SETTINGS_DIR = "/app/settings"
-CATEGORIES_FILE = SETTINGS_DIR / "settings" / "categories.json"
-PRIORITIES_FILE = SETTINGS_DIR / "settings" / "priorities.json"
-DEPARTMENTS_FILE = SETTINGS_DIR / "settings" / "departments.json"
+CATEGORIES_FILE = SETTINGS_DIR / "categories.json"
+PRIORITIES_FILE = SETTINGS_DIR / "priorities.json"
+DEPARTMENTS_FILE = SETTINGS_DIR / "departments.json"
 
 # Read all necessary files
 with open(CATEGORIES_FILE, "r", encoding="utf-8") as f:
