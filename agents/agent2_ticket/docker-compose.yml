@@ -13,6 +13,7 @@ services:
       EMBEDING_MODEL_NAME: "${EMBEDING_MODEL_NAME}"
       DEBUG: "${DEBUG:-False}"
     volumes:
+      - ./settings:/app/settings
       - ./documents/knowledge:/app/documents/knowledge
       - ./documents/logs:/app/documents/logs
       - ./documents/processed:/app/documents/processed
