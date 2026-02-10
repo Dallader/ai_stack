@@ -271,6 +271,7 @@ if prompt is not None:
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             try:
+                # Wywołanie modelu LLM
                 response = call_responses_api(
                     system_prompt=system_prompt,
                     client=client,
@@ -287,28 +288,35 @@ if prompt is not None:
                 st.markdown(output_text)
                 st.session_state.messages.append({"role": "assistant", "content": output_text})
 
-                # Check if a ticket should be created
-                if should_create_ticket(prompt, output_text):
+                # --- Inteligentne tworzenie ticketu w czacie ---
+                if st.session_state.get("ticket_suggestion", False):
                     ticket_data = {
-                        "first_name": "",
-                        "last_name": "",
-                        "email": "",
-                        "index_number": "",
-                        "description": prompt,
-                        "title": prompt[:50] + "...",
-                        "priority": "low"
+                        "first_name": st.session_state.user_first_name,
+                        "last_name": st.session_state.user_last_name,
+                        "email": st.session_state.user_email,
+                        "index_number": st.session_state.user_index,
+                        "description": output_text
                     }
-                    try:
-                        ticket_id = create_ticket_in_qdrant(qdrant_client, ticket_data)
-                        st.success(f"Ticket automatically created in Qdrant Tickets collection with ID: {ticket_id}")
-                    except ValueError as e:
-                        st.warning(str(e))
 
+                    ticket_info = interactive_ticket_creation(
+                        qdrant_client=qdrant_client,
+                        openai_client=client,
+                        model_name=MODEL_NAME,
+                        embedding_vector=None,
+                        ticket_data=ticket_data,
+                        interactive=False
+                    )
+
+                    st.success(f"✅ Ticket został utworzony automatycznie! ID: {ticket_info['ticket_id']}")
+                    st.info(f"Tytuł: {ticket_info['title']} | Kategoria: {ticket_info['category']}")
+
+                # Aktualizacja poprzedniego ID odpowiedzi
                 if hasattr(response, "id"):
                     st.session_state.previous_response_id = response.id
 
             except Exception as e:
                 st.error(f"Error generating response: {e}")
+
 
     # Process uploaded documents for Qdrant and move to processed
     for doc_path in documents:

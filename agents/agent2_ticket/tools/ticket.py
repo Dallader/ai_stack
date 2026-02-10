@@ -10,6 +10,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).parent.parent
 CATEGORIES_FILE = BASE_DIR / "settings" / "categories.json"
 PRIORITIES_FILE = BASE_DIR / "settings" / "priorities.json"
+DEPARTMENTS_FILE = BASE_DIR / "settings" / "departments.json"
 
 # Wczytaj kategorie i priorytety
 with open(CATEGORIES_FILE, "r", encoding="utf-8") as f:
@@ -17,6 +18,9 @@ with open(CATEGORIES_FILE, "r", encoding="utf-8") as f:
 
 with open(PRIORITIES_FILE, "r", encoding="utf-8") as f:
     priorities_list = json.load(f)["priorities"]
+    
+with open(DEPARTMENTS_FILE, "r", encoding="utf-8") as f:
+    departments_list = json.load(f)["departments"]
 
 @dataclass
 class Ticket:

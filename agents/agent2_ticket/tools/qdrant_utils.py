@@ -13,7 +13,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct, VectorParams
 from .api_utils import embed_text, embed_image
 from .llm_utils import determine_category_llm
-from .ticket import Ticket
+from .ticket import *
 from collections import Counter
 
 # Ensure Tesseract binary is found
@@ -322,52 +322,120 @@ def extract_text_from_pdf(file_path):
     return combined_text
 
 
+def interactive_ticket_creation(
+    qdrant_client,
+    openai_client,
+    model_name,
+    embedding_vector=None,
+    ticket_data: dict = None,
+    interactive: bool = True
+):
+    """
+    Tworzy ticket BOS.
+    interactive=True -> działa w konsoli z input()
+    interactive=False -> działa automatycznie (np. Streamlit)
+    """
+    if interactive:
+        print("Cześć! Jestem Twoim wirtualnym asystentem BOS 🤖")
+        first_name = input("Imię: ").strip()
+        last_name = input("Nazwisko: ").strip()
+        email = input("Adres e-mail: ").strip()
+        index_number = input("Numer albumu / indexu: ").strip()
+        print("\nOpisz swój problem lub zgłoszenie:")
+        description = input("Treść zgłoszenia: ").strip()
+        ticket_data = {
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email,
+            "index_number": index_number,
+            "description": description
+        }
+
+    # Generowanie tytułu i podsumowania przez LLM
+    prompt_title = f"""
+    Stwórz krótki tytuł i podsumowanie zgłoszenia do BOS.
+    Treść: \"\"\"{ticket_data['description']}\"\"\"
+    Odpowiedz w formacie JSON: {{ "title": "<tytuł>", "summary": "<podsumowanie>" }}
+    """
+    response_title = openai_client.responses.create(
+        model=model_name,
+        input=[{"type": "message", "role": "user", "content": [{"type": "input_text", "text": prompt_title}]}]
+    )
+    try:
+        parsed_title = json.loads(response_title.output_text)
+        title = parsed_title.get("title", ticket_data['description'][:50]+"...")
+        summary = parsed_title.get("summary", ticket_data['description'])
+    except Exception:
+        title = ticket_data['description'][:50]+"..."
+        summary = ticket_data['description']
+
+    # LLM wybiera kategorię i priorytet
+    cat_priority = assign_category_and_priority(
+        client=openai_client,
+        model_name=model_name,
+        conversation_context=ticket_data['description']
+    )
+    category = cat_priority["category"]
+    priority = cat_priority["priority"]
+    department = ticket_data.get("department", "BOS")
+
+    # Tworzenie ticketu
+    ticket = Ticket(
+        title=title,
+        description=summary,
+        created_by=f"{ticket_data['first_name']} {ticket_data['last_name']}",
+        category=category,
+        priority=priority
+    )
+
+    # Payload dla Qdrant
+    payload_dict = ticket.as_dict()
+    payload_dict["department"] = department
+    vector = embedding_vector if embedding_vector else [0.0]*1536
+
+    point = PointStruct(
+        id=ticket.ticket_id,
+        vector=vector,
+        payload=payload_dict
+    )
+    qdrant_client.upsert(collection_name="Tickets", points=[point])
+
+    return {"ticket_id": ticket.ticket_id, "title": title, "category": category}
+
 def create_ticket_in_qdrant(qdrant_client, ticket_data: dict, embedding_vector=None):
     """
-    Create a ticket in the Qdrant 'Tickets' collection.
-    Only creates a ticket if all required fields are present.
-
-    Args:
-        qdrant_client: QdrantClient instance
-        ticket_data: dict with keys:
-            - first_name
-            - last_name
-            - email
-            - index_number
-            - description
-            - title (optional)
-            - priority (optional, default 'Medium')
-        embedding_vector: optional vector for semantic search
-
-    Returns:
-        str: ticket_id of the created ticket
-
-    Raises:
-        ValueError: if required fields are missing
+    Tworzy ticket w kolekcji 'Tickets' Qdrant.
+    W razie braku embeddingu, używa wektora zerowego.
     """
     REQUIRED_FIELDS = ["first_name", "last_name", "email", "index_number", "description"]
     missing = [f for f in REQUIRED_FIELDS if not ticket_data.get(f)]
     if missing:
         raise ValueError(f"Nie można utworzyć ticketu. Brakujące dane: {', '.join(missing)}")
 
-    # Create Ticket object
+    # Utworzenie obiektu Ticket
     ticket = Ticket(
         title=ticket_data.get("title", ticket_data["description"][:50] + "..."),
         description=ticket_data["description"],
         created_by=f"{ticket_data['first_name']} {ticket_data['last_name']}",
-        priority=ticket_data.get("priority", "Medium")
+        priority=ticket_data.get("priority", "Informacyjne"),
+        category=ticket_data.get("category", "Pozostałe dokumenty")
     )
 
-    # Use embedding vector if provided, else default zero vector
-    vector = embedding_vector if embedding_vector else [0.0]*1536
+    # Payload dla Qdrant
+    payload_dict = ticket.as_dict()
+    payload_dict["department"] = ticket_data.get("department", "BOS")
+
+    # Wektor embeddingu
+    vector = embedding_vector if embedding_vector else [0.0] * 1536
 
     point = PointStruct(
         id=str(uuid.uuid4()),
         vector=vector,
-        payload=ticket.as_dict()
+        payload=payload_dict
     )
 
     qdrant_client.upsert(collection_name="Tickets", points=[point])
+
     return ticket.ticket_id
 
 
