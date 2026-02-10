@@ -278,7 +278,50 @@ if prompt is not None:
                     elif content_item["type"] == "input_image":
                         st.image(content_item["image_url"], width=100)
 
-    # Generate AI response
+    is_ticket_intent = should_create_ticket(prompt, "")
+
+    if is_ticket_intent:
+        change = extract_change_request(client, MODEL_NAME, prompt)
+
+        if not change.get("field") or not change.get("new_value"):
+            st.warning(
+                "Aby utworzyć zgłoszenie o zmianę danych, podaj:\n"
+                "- co chcesz zmienić (np. email)\n"
+                "- nową wartość\n\n"
+                "Przykład: *Chcę zmienić email na nowy@email.pl*"
+            )
+            st.stop()
+
+        ticket_data = {
+            "first_name": st.session_state.get("user_first_name"),
+            "last_name": st.session_state.get("user_last_name"),
+            "email": st.session_state.get("user_email"),
+            "index_number": st.session_state.get("user_index"),
+            "description": (
+                f"Prośba o zmianę danych.\n"
+                f"Pole: {change['field']}\n"
+                f"Stara wartość: {change.get('old_value') or 'nie podano'}\n"
+                f"Nowa wartość: {change['new_value']}"
+            )
+        }
+
+        missing = [k for k, v in ticket_data.items() if not v]
+        if missing:
+            st.error("Brakuje danych studenta:\n" + ", ".join(missing))
+            st.stop()
+
+        ticket_info = interactive_ticket_creation(
+            qdrant_client=qdrant_client,
+            openai_client=client,
+            model_name=MODEL_NAME,
+            ticket_data=ticket_data,
+            interactive=False
+        )
+
+        st.success(f"Ticket utworzony! ID: {ticket_info['ticket_id']}")
+        st.info(f"Kategoria: {ticket_info['category']}")
+        st.stop()
+        
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             try:
@@ -295,33 +338,8 @@ if prompt is not None:
                 )
 
                 output_text = get_text_output(response)
-                
-                # Check if user need to create a ticket
-                create_ticket = should_create_ticket(prompt, output_text)
-                
                 st.markdown(output_text)
                 st.session_state.messages.append({"role": "assistant", "content": output_text})
-
-                if create_ticket:
-                    ticket_data = {
-                        "first_name": st.session_state.get("user_first_name", "Brak"),
-                        "last_name": st.session_state.get("user_last_name", "Brak"),
-                        "email": st.session_state.get("user_email", "brak@email.pl"),
-                        "index_number": st.session_state.get("user_index", "Brak"),
-                        "description": prompt  # ⬅️ WAŻNE: treść OD UŻYTKOWNIKA
-                    }
-
-                    ticket_info = interactive_ticket_creation(
-                        qdrant_client=qdrant_client,
-                        openai_client=client,
-                        model_name=MODEL_NAME,
-                        ticket_data=ticket_data,
-                        interactive=False
-                    )
-
-                    st.success(f"Ticket utworzony! ID: {ticket_info['ticket_id']}")
-                    st.info(f"Kategoria: {ticket_info['category']}")
-                    st.stop()
 
                 if hasattr(response, "id"):
                     st.session_state.previous_response_id = response.id
@@ -329,8 +347,6 @@ if prompt is not None:
             except Exception as e:
                 st.error(f"Error generating response: {e}")
 
-
-    # Process uploaded documents for Qdrant and move to processed
     for doc_path in documents:
         text = doc_path.read_text(encoding="utf-8").strip()
         

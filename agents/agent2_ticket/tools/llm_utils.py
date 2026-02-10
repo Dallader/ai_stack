@@ -1,3 +1,5 @@
+import json 
+
 def determine_category_llm(client, text, categories, classifying_model_name):
     """Determine document category using LLM."""
     try:
@@ -55,3 +57,37 @@ def should_create_ticket(user_prompt: str, assistant_response: str) -> bool:
     system_suggestion = any(keyword in assistant_response.lower() for keyword in system_keywords)
 
     return user_intent or system_suggestion
+
+def extract_change_request(client, model_name, prompt: str) -> dict:
+    """
+    Extracts change request details from user prompt.
+    """
+    system_prompt = """
+    You extract structured data from a student's request to BOS.
+    If information is missing, return null for that field.
+
+    Respond ONLY in JSON:
+    {
+      "field": "<what is being changed>",
+      "old_value": "<current value or null>",
+      "new_value": "<new value or null>"
+    }
+    """
+
+    response = client.responses.create(
+        model=model_name,
+        input=[
+            {
+                "type": "message",
+                "role": "user",
+                "content": [{"type": "input_text", "text": prompt}]
+            }
+        ],
+        instructions=system_prompt,
+        temperature=0
+    )
+
+    try:
+        return json.loads(response.output_text)
+    except Exception:
+        return {"field": None, "old_value": None, "new_value": None}
