@@ -6,8 +6,12 @@ services:
       - "8002:8000"
     networks:
       - ai_network
-    env_file:
-      - stack.env
+    environment:
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      MODEL_NAME: "${MODEL_NAME}"
+      CLASSIFYING_MODEL_NAME: "${CLASSIFYING_MODEL_NAME}"
+      EMBEDING_MODEL_NAME: "${EMBEDING_MODEL_NAME}"
+      DEBUG: "${DEBUG:-False}"
     volumes:
       - ./documents/knowledge:/app/documents/knowledge
       - ./documents/logs:/app/documents/logs
