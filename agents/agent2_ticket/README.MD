@@ -168,5 +168,3 @@ print(ticket.as_dict())
 - Enable Streamlit auth or reverse-proxy auth if exposed publicly.
 
 ---
-
-Happy building! If you extend the agent, keep system prompt, categories, and ingestion schema aligned to ensure consistent responses.
