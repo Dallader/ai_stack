@@ -293,22 +293,6 @@ if st.session_state.get("pending_ticket_data"):
     st.session_state.pending_ticket_data = None
     st.stop()
 
-        
-def get_full_conversation() -> str:
-    """Zbiera pełną historię rozmowy z sesji Streamlit jako opis ticketu."""
-    full_conversation_parts = []
-    for msg in st.session_state.get("messages", []):
-        if msg.get("role") == "user":
-            content = msg.get("content")
-            if isinstance(content, list):
-                for part in content:
-                    for content_item in part.get("content", []):
-                        if content_item.get("type") == "input_text":
-                            full_conversation_parts.append(content_item["text"])
-            elif isinstance(content, str):
-                full_conversation_parts.append(content)
-    return "\n".join(full_conversation_parts).strip() or "Brak treści rozmowy"
-
 if prompt is not None:
     
     if st.session_state.collecting_student_data:
@@ -332,7 +316,6 @@ if prompt is not None:
             st.chat_message("assistant").markdown(question_map[next_field])
             st.stop()
         else:
-            # komplet danych → przygotuj ticket
             st.session_state.collecting_student_data = False
 
             ticket_data = {
@@ -340,7 +323,7 @@ if prompt is not None:
                 "last_name": st.session_state.get("user_last_name", ""),
                 "email": st.session_state.get("user_email", ""),
                 "index_number": st.session_state.get("user_index_number", ""),
-                "description": get_full_conversation,
+                "description": summarize_conversation(client, MODEL_NAME, st.session_state.get("messages", [])),
             }
 
             st.session_state.pending_ticket_data = ticket_data

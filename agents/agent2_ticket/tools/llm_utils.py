@@ -91,3 +91,50 @@ def extract_change_request(client, model_name, prompt: str) -> dict:
         return json.loads(response.output_text)
     except Exception:
         return {"field": None, "old_value": None, "new_value": None}
+
+def get_full_conversation(messages) -> str:
+    """
+    Zwraca pełną rozmowę użytkownika jako jeden string,
+    z listy wiadomości Streamlit session_state['messages'].
+    """
+    parts = []
+
+    for msg in messages:
+        if msg.get("role") == "user":
+            content = msg.get("content")
+            if isinstance(content, list):
+                for part in content:
+                    for content_item in part.get("content", []):
+                        if content_item.get("type") == "input_text":
+                            parts.append(content_item["text"])
+            elif isinstance(content, str):
+                parts.append(content)
+
+    full_conversation = "\n".join(parts).strip()
+    return full_conversation if full_conversation else "Brak treści rozmowy"
+
+
+def summarize_conversation(client, model_name, messages) -> str:
+    """
+    Podsumowuje całą rozmowę użytkownika w celu użycia w ticket.description
+    """
+    full_text = get_full_conversation(messages)
+    if not full_text.strip():
+        return "Brak treści rozmowy"
+
+    prompt = f"""
+    Podsumuj poniższą rozmowę użytkownika w formie krótkiego opisu zgłoszenia do BOS.
+    Zachowaj wszystkie istotne informacje, nie powtarzaj dokładnie wszystkich wiadomości.
+
+    {full_text}
+    """
+
+    response = client.responses.create(
+        model=model_name,
+        input=[{"type":"message","role":"user","content":[{"type":"input_text","text":prompt}]}]
+    )
+
+    try:
+        return response.output_text.strip()
+    except Exception:
+        return full_text[:500]  # fallback

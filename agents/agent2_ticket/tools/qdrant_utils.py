@@ -340,31 +340,15 @@ def interactive_ticket_creation(
         if not chat_history:
             raise ValueError("Brak historii rozmowy do utworzenia ticketa.")
 
-        full_conversation_parts = []
-
-        for msg in st.session_state.get("messages", []):
-            if msg.get("role") == "user":
-                content = msg.get("content")
-                if isinstance(content, list):
-                    for part in content:
-                        for content_item in part.get("content", []):
-                            if content_item.get("type") == "input_text":
-                                full_conversation_parts.append(content_item["text"])
-                elif isinstance(content, str):
-                    full_conversation_parts.append(content)
-
-        full_conversation = "\n".join(full_conversation_parts).strip()
-        
-        if not full_conversation:
-            full_conversation = "Brak treści rozmowy"
+        full_conversation = get_full_conversation(st.session_state.get("messages", []))
+        ticket_data["description"] = full_conversation if full_conversation else "Brak treści rozmowy"
 
         ticket_data = {
-            "first_name": st.session_state.get("first_name", "Nieznany"),
-            "last_name": st.session_state.get("last_name", ""),
-            "email": st.session_state.get("email", ""),
-            "index_number": st.session_state.get("index_number", ""),
+            "first_name": st.session_state.get("user_first_name", "Nieznany"),
+            "last_name": st.session_state.get("user_last_name", ""),
+            "email": st.session_state.get("user_email", ""),
+            "index_number": st.session_state.get("user_index_number", ""),
             "description": full_conversation,
-            "department": "BOS"
         }
     
     if interactive:
@@ -409,7 +393,7 @@ def interactive_ticket_creation(
     )
     category = cat_priority["category"]
     priority = cat_priority["priority"]
-    department = ticket_data.get("department", "BOS")
+    department = cat_priority["department"]
 
     # Tworzenie ticketu
     ticket = Ticket(
