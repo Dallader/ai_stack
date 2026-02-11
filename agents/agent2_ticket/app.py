@@ -244,7 +244,43 @@ if uploaded:
 ## Chat input
 prompt = st.chat_input("Type your message here..")
 
+if "collecting_student_data" not in st.session_state:
+    st.session_state.collecting_student_data = False
+
+if "missing_fields" not in st.session_state:
+    st.session_state.missing_fields = []
+
 if prompt is not None:
+    
+    if st.session_state.get("collecting_student_data"):
+        field = st.session_state.get("current_field")
+
+        if field:
+            st.session_state[f"user_{field}"] = prompt
+
+            # usuń uzupełnione pole z listy brakujących
+            st.session_state.missing_fields.remove(field)
+
+            if st.session_state.missing_fields:
+                # pytamy o kolejne pole
+                next_field = st.session_state.missing_fields[0]
+                st.session_state.current_field = next_field
+
+                question_map = {
+                    "first_name": "Podaj swoje imię:",
+                    "last_name": "Podaj swoje nazwisko:",
+                    "email": "Podaj swój adres email:",
+                    "index_number": "Podaj swój numer indeksu:"
+                }
+
+                st.chat_message("assistant").markdown(question_map[next_field])
+                st.stop()
+            else:
+                # mamy komplet danych
+                st.session_state.collecting_student_data = False
+                st.success("Dziękuję. Mam już wszystkie dane. Tworzę zgłoszenie...")
+                st.rerun()
+                
     # Handle uploaded files only for this user message
     images = []
     documents = []
@@ -306,10 +342,25 @@ if prompt is not None:
         }
 
         missing = [k for k, v in ticket_data.items() if not v]
-        if missing:
-            st.error("Brakuje danych studenta:\n" + ", ".join(missing))
-            st.stop()
 
+        if missing:
+            st.session_state.collecting_student_data = True
+            st.session_state.missing_fields = missing
+
+            question_map = {
+                "first_name": "Podaj swoje imię:",
+                "last_name": "Podaj swoje nazwisko:",
+                "email": "Podaj swój adres email:",
+                "index_number": "Podaj swój numer indeksu:"
+            }
+
+            first_missing = missing[0]
+            st.session_state.current_field = first_missing
+
+            st.chat_message("assistant").markdown(question_map[first_missing])
+            st.stop()
+            
+        
         ticket_info = interactive_ticket_creation(
             qdrant_client=qdrant_client,
             openai_client=client,
