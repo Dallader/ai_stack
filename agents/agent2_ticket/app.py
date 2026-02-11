@@ -244,42 +244,84 @@ if uploaded:
 ## Chat input
 prompt = st.chat_input("Type your message here..")
 
+# Session states
 if "collecting_student_data" not in st.session_state:
     st.session_state.collecting_student_data = False
 
 if "missing_fields" not in st.session_state:
     st.session_state.missing_fields = []
 
+if "pending_ticket_data" not in st.session_state:
+    st.session_state.pending_ticket_data = None
+
+if "current_field" not in st.session_state:
+    st.session_state.current_field = None
+
+if st.session_state.get("pending_ticket_data"):
+
+    ticket_data = st.session_state.pending_ticket_data
+
+    with st.chat_message("assistant"):
+        st.markdown("### Podsumowanie zgłoszenia")
+        st.markdown(f"""
+            **Imię:** {ticket_data['first_name']}  
+            **Nazwisko:** {ticket_data['last_name']}  
+            **Email:** {ticket_data['email']}  
+            **Numer indeksu:** {ticket_data['index_number']}  
+            **Opis zgłoszenia:**  
+            {ticket_data['description']}""")
+
+        ticket_info = interactive_ticket_creation(
+            qdrant_client=qdrant_client,
+            openai_client=client,
+            model_name=MODEL_NAME,
+            ticket_data=ticket_data,
+            interactive=False
+        )
+
+        st.success("Zgłoszenie zostało pomyślnie utworzone!")
+        st.info(f"Numer zgłoszenia: {ticket_info['ticket_id']}")
+        st.info(f"Kategoria: {ticket_info['category']}")
+
+    st.session_state.pending_ticket_data = None
+    st.stop()
+
 if prompt is not None:
     
-    if st.session_state.get("collecting_student_data"):
-        field = st.session_state.get("current_field")
+    if st.session_state.collecting_student_data:
+
+        field = st.session_state.current_field
 
         if field:
             st.session_state[f"user_{field}"] = prompt
-
-            # usuń uzupełnione pole z listy brakujących
             st.session_state.missing_fields.remove(field)
 
-            if st.session_state.missing_fields:
-                # pytamy o kolejne pole
-                next_field = st.session_state.missing_fields[0]
-                st.session_state.current_field = next_field
+        question_map = {
+            "first_name": "Podaj swoje imię:",
+            "last_name": "Podaj swoje nazwisko:",
+            "email": "Podaj swój adres email:",
+            "index_number": "Podaj swój numer indeksu:"
+        }
 
-                question_map = {
-                    "first_name": "Podaj swoje imię:",
-                    "last_name": "Podaj swoje nazwisko:",
-                    "email": "Podaj swój adres email:",
-                    "index_number": "Podaj swój numer indeksu:"
-                }
+        if st.session_state.missing_fields:
+            next_field = st.session_state.missing_fields[0]
+            st.session_state.current_field = next_field
+            st.chat_message("assistant").markdown(question_map[next_field])
+            st.stop()
+        else:
+            # komplet danych → przygotuj ticket
+            st.session_state.collecting_student_data = False
 
-                st.chat_message("assistant").markdown(question_map[next_field])
-                st.stop()
-            else:
-                # mamy komplet danych
-                st.session_state.collecting_student_data = False
-                st.success("Dziękuję. Mam już wszystkie dane. Tworzę zgłoszenie...")
-                st.rerun()
+            ticket_data = {
+                "first_name": st.session_state.get("user_first_name"),
+                "last_name": st.session_state.get("user_last_name"),
+                "email": st.session_state.get("user_email"),
+                "index_number": st.session_state.get("user_index_number"),
+                "description": "Prośba o rezygnację ze studiów."
+            }
+
+            st.session_state.pending_ticket_data = ticket_data
+            st.rerun()
                 
     # Handle uploaded files only for this user message
     images = []
