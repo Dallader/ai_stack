@@ -173,7 +173,14 @@ with st.sidebar:
     if st.button("Clear Conversation History", use_container_width=True):
         st.session_state.messages = []
         st.session_state.previous_response_id = None
-        # Reest the page
+        st.session_state.collecting_student_data = False
+        st.session_state.missing_fields = []
+        st.session_state.pending_ticket_data = None
+        st.session_state.current_field = None
+        # Clear user data
+        for field in ["user_first_name", "user_last_name", "user_email", "user_index_number"]:
+            if field in st.session_state:
+                del st.session_state[field]
         st.rerun()
 
     if SIDEBAR:
@@ -286,6 +293,22 @@ if st.session_state.get("pending_ticket_data"):
     st.session_state.pending_ticket_data = None
     st.stop()
 
+        
+def get_full_conversation() -> str:
+    """Zbiera pełną historię rozmowy z sesji Streamlit jako opis ticketu."""
+    full_conversation_parts = []
+    for msg in st.session_state.get("messages", []):
+        if msg.get("role") == "user":
+            content = msg.get("content")
+            if isinstance(content, list):
+                for part in content:
+                    for content_item in part.get("content", []):
+                        if content_item.get("type") == "input_text":
+                            full_conversation_parts.append(content_item["text"])
+            elif isinstance(content, str):
+                full_conversation_parts.append(content)
+    return "\n".join(full_conversation_parts).strip() or "Brak treści rozmowy"
+
 if prompt is not None:
     
     if st.session_state.collecting_student_data:
@@ -313,11 +336,11 @@ if prompt is not None:
             st.session_state.collecting_student_data = False
 
             ticket_data = {
-                "first_name": st.session_state.get("user_first_name"),
-                "last_name": st.session_state.get("user_last_name"),
-                "email": st.session_state.get("user_email"),
-                "index_number": st.session_state.get("user_index_number"),
-                "description": "Prośba o rezygnację ze studiów."
+                "first_name": st.session_state.get("user_first_name", "Nieznany"),
+                "last_name": st.session_state.get("user_last_name", ""),
+                "email": st.session_state.get("user_email", ""),
+                "index_number": st.session_state.get("user_index_number", ""),
+                "description": get_full_conversation,
             }
 
             st.session_state.pending_ticket_data = ticket_data

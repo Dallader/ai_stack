@@ -70,45 +70,40 @@ class Ticket:
         }
 
 
-def assign_category_and_priority(client: OpenAI, model_name, conversation_context: str) -> Dict[str, str]:
+def assign_category_priority_department(client: OpenAI, model_name, conversation_context: str) -> Dict[str, str]:
     """
-    Funkcja prosi LLM o wybranie odpowiedniej kategorii i priorytetu
+    Funkcja prosi LLM o wybranie odpowiedniej kategorii, priorytetu i departamentu
     na podstawie kontekstu rozmowy.
     """
     system_prompt = f"""
-    Jesteś asystentem do tworzenia ticketów BOS (Biuro Obsługi Studenta).
+    Jesteś asystentem BOS do tworzenia ticketów.
     Na podstawie treści zgłoszenia użytkownika wybierz:
     1. Kategorie z listy: {categories_list}
     2. Priorytet z listy: {priorities_list}
-    
+    3. Departament z listy: {departments_list}
+
     Odpowiedz w formacie JSON:
     {{
         "category": "<wybrana_kategoria>",
-        "priority": "<wybrany_priorytet>"
+        "priority": "<wybrany_priorytet>",
+        "department": "<wybrany_departament>"
     }}
     """
 
     response = client.responses.create(
         model=model_name,
-        input=[
-            {
-                "type": "message",
-                "role": "user",
-                "content": [
-                    {"type": "input_text", "text": conversation_context}
-                ]
-            }
-        ],
+        input=[{"type": "message", "role": "user", "content":[{"type":"input_text","text":conversation_context}]}],
         instructions=system_prompt
     )
 
-    # Odczytaj JSON z odpowiedzi
     try:
         output_json = json.loads(response.output_text)
         category = output_json.get("category", "Pozostałe dokumenty")
         priority = output_json.get("priority", "Informacyjne")
+        department = output_json.get("department", "BOS")
     except Exception:
         category = "Pozostałe dokumenty"
         priority = "Informacyjne"
+        department = "BOS"
 
-    return {"category": category, "priority": priority}
+    return {"category": category, "priority": priority, "department": department}

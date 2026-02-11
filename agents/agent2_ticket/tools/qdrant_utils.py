@@ -335,6 +335,38 @@ def interactive_ticket_creation(
     interactive=True -> działa w konsoli z input()
     interactive=False -> działa automatycznie (np. Streamlit)
     """
+    if ticket_data is None:
+        chat_history = st.session_state.get("messages", [])
+        if not chat_history:
+            raise ValueError("Brak historii rozmowy do utworzenia ticketa.")
+
+        full_conversation_parts = []
+
+        for msg in st.session_state.get("messages", []):
+            if msg.get("role") == "user":
+                content = msg.get("content")
+                if isinstance(content, list):
+                    for part in content:
+                        for content_item in part.get("content", []):
+                            if content_item.get("type") == "input_text":
+                                full_conversation_parts.append(content_item["text"])
+                elif isinstance(content, str):
+                    full_conversation_parts.append(content)
+
+        full_conversation = "\n".join(full_conversation_parts).strip()
+        
+        if not full_conversation:
+            full_conversation = "Brak treści rozmowy"
+
+        ticket_data = {
+            "first_name": st.session_state.get("first_name", "Nieznany"),
+            "last_name": st.session_state.get("last_name", ""),
+            "email": st.session_state.get("email", ""),
+            "index_number": st.session_state.get("index_number", ""),
+            "description": full_conversation,
+            "department": "BOS"
+        }
+    
     if interactive:
         print("Cześć! Jestem Twoim wirtualnym asystentem BOS 🤖")
         first_name = input("Imię: ").strip()
@@ -370,7 +402,7 @@ def interactive_ticket_creation(
         summary = ticket_data['description']
 
     # LLM wybiera kategorię i priorytet
-    cat_priority = assign_category_and_priority(
+    cat_priority = assign_category_priority_department(
         client=openai_client,
         model_name=model_name,
         conversation_context=ticket_data['description']
