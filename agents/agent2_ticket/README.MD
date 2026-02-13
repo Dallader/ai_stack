@@ -1,102 +1,170 @@
-## Agent 2 – Ticket & RAG Assistant 💗
+# AI Agent (RAG + Ticketing)
 
-> Pink, fluffy, and ready to help students. A FastAPI + Qdrant + Ollama chat that ingests documents, answers questions with RAG, and can raise BOS-style tickets — all with a cozy frontend.
+Intelligent Streamlit assistant for University that combines OpenAI Responses API, retrieval-augmented generation (RAG) over a Qdrant vector store, and BOS ticket drafting. Users can chat, upload documents or images, and ingest new materials into Qdrant for grounded answers.
 
-### 🌸 At a Glance
-- Friendly chat UI with silent uploads, session restore, and a clear-file button.
-- Auto-ingest of PDF/DOC/DOCX/TXT/MD/images (OCR) and XLS/XLSX; dedupe vs Qdrant before indexing.
-- RAG flow: embed → search → ground → generate with Ollama.
-- Ticket mode: LLM-based category/priority, stored in Qdrant `tickets`.
-- Collections auto-provisioned with vector-size checks.
+---
 
-### 🎀 Folder Map
-- [agents/agent2_ticket/app.py](agents/agent2_ticket/app.py) — FastAPI app, endpoints, RAG, ingest, tickets.
-- [agents/agent2_ticket/ingest.py](agents/agent2_ticket/ingest.py) — batch ingest helper.
-- [agents/agent2_ticket/tools/helpers.py](agents/agent2_ticket/tools/helpers.py) — extraction, chunking, embeddings, Qdrant I/O, ticket writer.
-- [agents/agent2_ticket/templates/chat.html](agents/agent2_ticket/templates/chat.html) — chat shell.
-- [agents/agent2_ticket/static/js/chat.js](agents/agent2_ticket/static/js/chat.js) — frontend logic (sessions, silent upload, status, sequencing).
-- [agents/agent2_ticket/static/css/style.css](agents/agent2_ticket/static/css/style.css) — pastel styling.
-- settings/behavior.json, phrases.json, prompt_config.json, rules.json — prompts & tone.
-- documents/, knowledge/, incoming/, processed_documents/, logs/ — content, uploads, processed text, and logs.
+## Features
+- Conversational UI with chat history, image and document uploads (Streamlit chat).
+- Grounded answers via RAG over Qdrant collections (`Documents`, `Knowledge`, `Processed`, `Tickets`).
+- One-click ingestion pipeline with hashing-based deduplication, chunking, and OCR fallback for PDFs.
+- Automatic category classification and ticket scaffolding for BOS (Biuro Obsługi Studenta).
+- Configurable system prompt, categories, priorities, and model names via JSON in `settings/`.
+- Sidebar observability for Qdrant collections and import progress.
 
-### ✨ Runtime Story
-1) Startup: ensure folders exist; auto-create `documents` collection with proper dim; log URLs.
-2) First query: if Qdrant empty, index knowledge/incoming/documents/processed once.
-3) Frontend: user picks a file (kept pending); on “Wyślij” the file is silently posted to `/documents/upload`, then the chat request goes to `/run`.
-4) Upload: extract text → embed query → search Qdrant (threshold 0.82). If similar, skip index; else categorize via LLM, chunk (800/200), embed, upsert with payload (doc_id, source, path, category, origin, uploaded_by) and save processed copy.
-5) Chat: embed question → Qdrant top 5 (threshold 0.2) → craft context → Ollama generate/chat → reply.
-6) Ticket intent: capture user info, LLM assigns category/priority, upsert into `tickets` with vector built from question + recent chat.
-
-### 🎯 Endpoints Cheat-Sheet
-| Method | Path | Purpose |
-| --- | --- | --- |
-| GET | / | Chat UI |
-| GET | /api | Service info |
-| GET | /health | Liveness for UI |
-| POST | /run | Main chat (RAG + optional pending upload) |
-| POST | /documents/upload | Silent ingest + dedupe + index if new |
-| GET | /collections | Qdrant collections with counts |
-| POST | /clear_history | Clear chat history (keep user data flags) |
-| GET | /session/{session_id} | Restore session |
-
-### 🌷 Models & Embeddings
-- Generation: Ollama `OLLAMA_MODEL` (default `mistral:7b`), tries `/api/generate` then `/api/chat`.
-- Embeddings: `OLLAMA_EMBED_MODEL` (default `nomic-embed-text`), dim `OLLAMA_EMBED_DIM` (default 768), endpoint `OLLAMA_EMBED_URL`.
-- Timeouts: `OLLAMA_REQUEST_TIMEOUT` (default 600s), `LLM_TIMEOUT_SECONDS` (default +60 buffer).
-
-### 🧁 Frontend UX
-- Silent uploads (no chat noise); hint line lists allowed types.
-- Pending-file badge + “Usuń plik” to clear wrong selection.
-- Status sequence: “Szukam…”, “Analizuję…”, “Generuję…”.
-- Session restore and history clear without losing user data when already collected.
-
-### 🍬 File Handling
-- Extensions: pdf, txt, md, doc, docx, png, jpg, jpeg, webp, gif, bmp, xls, xlsx.
-- PDF via pypdf; DOC/DOCX via docx2txt; images via Pillow + optional pytesseract; Excel via pandas; text utf-8/latin-1 fallback.
-- Chunking: size 800, overlap 200.
-
-### 🎟️ Ticketing
-- Categories: Technical Issue, Academic Question, Administrative, Financial, General Inquiry.
-- Priority: Low, Medium, High, Critical.
-- Stored in Qdrant `tickets` with vector of question + recent chat; payload includes user data and summary.
-
-### 🌺 Environment
-- Qdrant: `QDRANT_URL`, `QDRANT_COLLECTION`, `TICKETS_COLLECTION` (defaults documents/tickets).
-- Ollama: `OLLAMA_URL`, `OLLAMA_EMBED_URL`, `OLLAMA_MODEL`, `OLLAMA_EMBED_MODEL`, `OLLAMA_EMBED_DIM`.
-- Time/limits: `OLLAMA_REQUEST_TIMEOUT`, `LLM_TIMEOUT_SECONDS`, `OLLAMA_NUM_PREDICT`, `OLLAMA_NUM_CTX`.
-
-### 🧪 Quickstart (pink edition)
+## Quickstart
+1) **Python environment** (3.10+ recommended):
 ```bash
-# 1) Run the stack (from repo root or this folder)
-
-
-# 2) Open the chat
-open http://localhost:8002/
-
-# 3) Optional: batch ingest (example)
-python agents/agent2_ticket/ingest.py --dir agents/agent2_ticket/knowledge
+python -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
-```bash
-# Upload a doc (silent ingest) via curl
-curl -F "file=@sample.docx" http://localhost:8002/documents/upload
+2) **System packages** (for PDF/OCR ingestion):
+- Poppler utilities (`pdftoppm`, `pdftocairo`) for `pdf2image`.
+- Tesseract OCR with Polish language data (`tesseract`, `tesseract-ocr-pol`).
 
-# Ask a question (after upload)
-curl -X POST http://localhost:8002/run \
-	-H "Content-Type: application/json" \
-	-d '{"input":"Gdzie wyslac prace dyplomowa?"}'
+3) **Environment variables** (via `.env` or Streamlit secrets):
+```bash
+OPENAI_API_KEY=sk-...
+MODEL_NAME=gpt-5.1
+EMBEDING_MODEL_NAME=text-embedding-3-large
+QDRANT_URL=https://<qdrant-host>
+QDRANT_API_KEY=<qdrant-key>
 ```
 
-### 🌸 Data & Payloads
-- Doc payload: doc_id, source, path, category, origin (knowledge/incoming/documents/processed/student_upload), chunk_id, text, uploaded_by.
-- Ticket payload: ticket_id, category, priority, user info, question, chat_history, ticket_text, status, timestamp.
+4) **Run the app**:
+```bash
+streamlit run app.py
+```
 
-### 🛡️ Notes
-- OCR needs pytesseract in the image/host.
-- Upload size limits depend on infra config.
-- Vector-size drift recreates collections to match embedding dim.
+## How it works
+- **UI bootstrap**: [app.py](app.py) loads custom CSS, reads `settings/*.json`, and ensures Qdrant collections exist.
+- **Conversation flow**: user text + optional images become input parts, cached in `st.session_state`. Messages render with Streamlit chat components.
+- **RAG step**: `call_responses_api()` embeds the user prompt, queries Qdrant (`top_k=5`), and prepends retrieved chunks to the system prompt before calling `client.responses.create()`.
+- **Responses API**: Uses `MODEL_NAME` (default GPT-5 class) with continuity via `previous_response_id` to preserve context across turns.
+- **Uploads**: Files go to `documents/uploads/`; text files <1k chars are echoed, longer docs are embedded and upserted into Qdrant, then copied to `documents/processed/`.
+- **Ticketing**: `Ticket` dataclass stores BOS ticket fields; `assign_category_and_priority()` asks the LLM to pick values from `settings/categories.json` and `settings/priorities.json`.
 
-### 💖 FAQ
-- Duplicate uploads? Detected by similarity ≥ 0.82, skipped from indexing.
-- LLM/embeddings down? HTTP 5xx with friendly text; UI shows connection error.
-- Want to reset chat only? Use “Wyczyść” — user data is preserved if already captured.
+## Key components
+- Chat & RAG orchestration: [tools/api_utils.py](tools/api_utils.py)
+	- `build_input_parts()`: normalizes text and images into Responses API format.
+	- `call_responses_api()`: embeds user text, fetches context from Qdrant, calls OpenAI Responses API.
+	- `get_text_output()`: extracts assistant text.
+	- `embed_text()` / `embed_image()`: helper embedding calls.
+- Qdrant helpers: [tools/qdrant_utils.py](tools/qdrant_utils.py)
+	- `ensure_collections_exist()`: idempotent collection creation.
+	- `import_and_index_documents_qdrant()`: dedup by SHA256, chunk, embed, upsert with progress UI; OCR fallback for scanned PDFs.
+	- `not_imported_files()`: counts unseen files by hash.
+	- `extract_text_from_pdf()`: text-first, OCR-second extraction.
+- Ticketing: [tools/ticket.py](tools/ticket.py)
+	- `Ticket` dataclass with status, attachments, timestamps.
+	- `assign_category_and_priority()`: LLM-based classification from configured lists.
+- Prompt & formatting utilities: [tools/llm_utils.py](tools/llm_utils.py)
+	- `build_system_prompt()`: flattens `settings/llm.json` into a single system string.
+	- `determine_category_llm()`: classifies documents during ingestion.
+- File moves: [tools/file_utils.py](tools/file_utils.py) for upload persistence and processed copies.
+
+## Configuration
+- `settings/llm.json`: persona, guardrails, and Markdown formatting rules for the system prompt.
+- `settings/models.json`: reference list of available backends/embedders.
+- `settings/categories.json`: BOS categories surfaced in chat and ingestion.
+- `settings/priorities.json`: allowed ticket priorities.
+- `settings/qdrant.json`: declarative list of collections (runtime uses env vars for URL/key).
+
+## Data and directories
+- `documents/knowledge/`: primary corpus to ingest (txt, md, pdf, docx, images).
+- `documents/uploads/`: per-session uploads saved from the chat UI.
+- `documents/processed/`: copied uploads after ingestion.
+- `documents/logs/`: placeholder for runtime logs.
+- `static/css/main.css`: Streamlit theming override.
+
+## Ingestion workflow
+1) Sidebar → **Import Documents** triggers `import_and_index_documents_qdrant()`.
+2) Each file hashed (SHA256) to skip duplicates already in Qdrant.
+3) Text is chunked (800 chars, 200 overlap) and embedded with `EMBEDING_MODEL_NAME`.
+4) Payload stored with source path, category, chunk offsets, upload timestamp.
+5) Images are embedded via filename proxy embedding for discoverability.
+
+Programmatic example:
+```python
+from qdrant_client import QdrantClient
+from openai import OpenAI
+from tools.qdrant_utils import import_and_index_documents_qdrant
+
+client = OpenAI()
+qdrant = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+
+import_and_index_documents_qdrant(
+		qdrant_client=qdrant,
+		client=client,
+		embedding_model_name="text-embedding-3-large",
+		knowledge_dir="documents/knowledge",
+		model_name="gpt-5.1",
+		settings_dir="settings",
+)
+```
+
+## Chat + RAG example (standalone)
+```python
+from openai import OpenAI
+from tools.api_utils import build_input_parts, call_responses_api, get_text_output
+from qdrant_client import QdrantClient
+
+client = OpenAI()
+qdrant = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+
+parts = build_input_parts("Jak uzyskać zaświadczenie o studiowaniu?", images=[])
+
+resp = call_responses_api(
+		system_prompt="You are a helpful university assistant.",
+		client=client,
+		model_name="gpt-5.1",
+		embedding_model_name="text-embedding-3-large",
+		parts=parts,
+		qdrant_client=qdrant,
+		qdrant_collection="Documents",
+		top_k=5,
+)
+
+print(get_text_output(resp))
+```
+
+## Ticket drafting example
+```python
+from openai import OpenAI
+from tools.ticket import Ticket, assign_category_and_priority
+
+client = OpenAI()
+context = "Potrzebuję zaświadczenia o studiowaniu do przedstawienia w urzędzie pracy."
+
+selection = assign_category_and_priority(client, model_name="gpt-5.1", conversation_context=context)
+
+ticket = Ticket(
+		title="Prośba o zaświadczenie",
+		description=context,
+		created_by="student@uni.edu",
+		category=selection["category"],
+		priority=selection["priority"],
+)
+
+print(ticket.as_dict())
+```
+
+## Security and secrets
+- Do not hardcode keys; prefer `.env` or Streamlit secrets.
+- Uploaded files are stored locally; scrub if handling PII.
+- Qdrant connectivity is authenticated via `QDRANT_API_KEY`.
+
+## Troubleshooting
+- Missing OCR/text from PDFs: install Poppler and Tesseract with Polish language data.
+- Empty answers: verify `OPENAI_API_KEY`, `QDRANT_URL`, `QDRANT_API_KEY`, and that collections contain vectors.
+- Slow ingestion: adjust `batch_size` in `import_and_index_documents_qdrant()`; reduce chunk size if needed.
+
+## Running in production
+- Front behind HTTPS and secure secrets management.
+- Use persistent storage for `documents/` and Qdrant collections.
+- Enable Streamlit auth or reverse-proxy auth if exposed publicly.
+
+---
