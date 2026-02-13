@@ -3,7 +3,7 @@ services:
     build: .
     container_name: agent2_ticket
     ports:
-      - "8002:8000"
+      - "8001:8000"
     networks:
       - ai_network
     environment:
