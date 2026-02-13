@@ -176,53 +176,53 @@ System został zaprojektowany modularnie, co oznacza możliwość łatwego dodaw
 ### Architektura Systemu
 
 ```
-┌─────────────────────────────────────────────┐
-│           Interfejs Użytkownika             │
-│              (Streamlit)                    │
-└──────────────────┬──────────────────────────┘
+┌────────────────────────────────────────────┐
+│           Interfejs Użytkownika            │
+│              (Streamlit)                   │
+└──────────────────┬─────────────────────────┘
                    │
-┌──────────────────▼──────────────────────────┐
-│           Warstwa Aplikacyjna               │
-│                                             │
+┌──────────────────▼─────────────────────────┐
+│           Warstwa Aplikacyjna              │
+│                                            │
 │  ┌──────────────────────────────────────┐  │
 │  │  Moduł Konwersacji (app.py)          │  │
 │  │  - Zarządzanie sesją                 │  │
 │  │  - Historia rozmów                   │  │
 │  │  - Obsługa uploads                   │  │
 │  └──────────────────────────────────────┘  │
-│                                             │
+│                                            |
 │  ┌──────────────────────────────────────┐  │
 │  │  Moduł Ticketów (ticket.py)          │  │
 │  │  - Tworzenie zgłoszeń                │  │
 │  │  - Kategoryzacja                     │  │
 │  │  - Priorytetyzacja                   │  │
 │  └──────────────────────────────────────┘  │
-│                                             │
+│                                            │
 │  ┌──────────────────────────────────────┐  │
 │  │  Moduł RAG (api_utils.py)            │  │
 │  │  - Embeddingi                        │  │
 │  │  - Wyszukiwanie semantyczne          │  │
 │  │  - Kontekst z dokumentów             │  │
 │  └──────────────────────────────────────┘  │
-│                                             │
+│                                            │
 │  ┌──────────────────────────────────────┐  │
 │  │  Moduł Qdrant (qdrant_utils.py)      │  │
 │  │  - Zarządzanie kolekcjami            │  │
 │  │  - Import dokumentów                 │  │
 │  │  - Chunking i deduplikacja           │  │
 │  └──────────────────────────────────────┘  │
-└──────────────────┬──────────────────────────┘
+└──────────────────┬─────────────────────────┘
                    │
-┌──────────────────▼──────────────────────────┐
-│          Warstwa Infrastruktury             │
-│                                             │
+┌──────────────────▼─────────────────────────┐
+│          Warstwa Infrastruktury            │
+│                                            │
 │  ┌──────────────┐      ┌────────────────┐  │
 │  │   OpenAI     │      │    Qdrant      │  │
 │  │   GPT-5      │      │  Vector DB     │  │
 │  │  Responses   │      │  Port: 6333    │  │
 │  │     API      │      │                │  │
 │  └──────────────┘      └────────────────┘  │
-└─────────────────────────────────────────────┘
+└────────────────────────────────────────────┘
 ```
 
 ### Stack Technologiczny
