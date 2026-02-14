@@ -2,6 +2,7 @@
 import os, base64
 import streamlit as st
 import json
+import time
 # OpenaAI API
 from openai import OpenAI
 # Load env's
@@ -9,6 +10,7 @@ from dotenv import load_dotenv
 from typing import List, Dict, Any
 from pathlib import Path
 from dataclasses import dataclass
+import charset_normalizer
 # Qdrant
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import PointStruct
@@ -33,12 +35,12 @@ if DEBUG:
     SETTINGS_DIR = BASE_DIR / "settings"
 else:
     # Use container-mounted paths or environment variables
-    SETTINGS_DIR = "/app/settings"
-    KNOWLEDGE_DIR = "/app/documents/knowledge"
-    LOGS_DIR = "/app/documents/logs"
-    UPLOADS_DIR = "/app/documents/uploads"
-    PROCESSED_DIR = "/app/documents/processed"
-    CSS_FILE =  "/app/static/css/main.css"
+    SETTINGS_DIR = Path("/app/settings")
+    KNOWLEDGE_DIR = Path("/app/documents/knowledge")
+    LOGS_DIR = Path("/app/documents/logs")
+    UPLOADS_DIR = Path("/app/documents/uploads")
+    PROCESSED_DIR = Path("/app/documents/processed")
+    CSS_FILE =  Path("/app/static/css/main.css")
 
 # Read .env file and set the variables
 load_dotenv()
@@ -165,12 +167,24 @@ if "previous_response_id" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Initialize success state
+if "show_success" not in st.session_state:
+    st.session_state.show_success = False
+    st.session_state.success_time = 0
+# Display success messages
+if st.session_state.show_success:
+    elapsed = time.time() - st.session_state.success_time
+    if elapsed < 5:
+        st.success("Conversation and uploaded files cleared!")
+    else:
+        st.session_state.show_success = False
+
 # User sidebar
 with st.sidebar:
     st.header("User Controls")
-
     # Clear the converstation history - reset chat history and context
     if st.button("Clear Conversation History", use_container_width=True):
+        # Clear history
         st.session_state.messages = []
         st.session_state.previous_response_id = None
         st.session_state.collecting_student_data = False
@@ -181,8 +195,15 @@ with st.sidebar:
         for field in ["user_first_name", "user_last_name", "user_email", "user_index_number"]:
             if field in st.session_state:
                 del st.session_state[field]
+        # Clear attached files form conversation
+        if "uploaded_files" in st.session_state:
+            st.session_state["uploaded_files"] = []
+        # Setting timeout
+        st.session_state.show_success = True
+        st.session_state.success_time = time.time()
+        # Rerun the application 
         st.rerun()
-
+        
     if SIDEBAR:
         st.divider() 
 
@@ -447,12 +468,16 @@ if prompt is not None:
                 st.error(f"Error generating response: {e}")
 
     for doc_path in documents:
-        text = doc_path.read_text(encoding="utf-8").strip()
-        
-        if len(text) < 1000:
-            st.markdown(f"**Treść dokumentu {doc_path.name}:** {text}")
-        else:
-            # Qdrant processing & embedding
+        try:
+            text = extract_text_from_file(doc_path)
+
+            if not text:
+                st.warning(f"Nie udało się wyodrębnić tekstu z {doc_path.name}")
+                continue
+
+            st.markdown(f"**Treść dokumentu {doc_path.name}:**\n{text[:1000]}{'...' if len(text) > 1000 else ''}")
+            processed_file = save_processed_text(PROCESSED_DIR, doc_path, text)
+
             import_and_index_documents_qdrant(
                 qdrant_client,
                 client,
@@ -461,6 +486,6 @@ if prompt is not None:
                 MODEL_NAME,
                 SETTINGS_DIR
             )
-        
-        # Move file to processed and uploaded folder
-        move_to_processed(PROCESSED_DIR, doc_path)
+
+        except Exception as e:
+            st.error(f"Nie udało się przetworzyć pliku {doc_path.name}: {e}")
