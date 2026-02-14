@@ -355,6 +355,9 @@ if prompt is not None:
     documents = []
 
     for f in uploaded or []:
+        # Log uploaded files for traceability
+        log_event(LOGS_DIR, "file_uploaded", {"filename": f.name, "size": f.size})
+        
         # Save file to uploads folder 
         saved_path = save_uploaded_file(f, UPLOADS_DIR)
         suffix = saved_path.suffix.lower()
@@ -372,7 +375,9 @@ if prompt is not None:
 
     # Store the user's message in chat session
     st.session_state.messages.append({"role": "user", "content": parts})
-
+    # Log user message
+    log_event(LOGS_DIR, "user_message", {"text": prompt})
+    
     # Display user's message
     with st.chat_message("user"):
         for p in parts:
@@ -440,6 +445,13 @@ if prompt is not None:
 
         st.success(f"Ticket utworzony! ID: {ticket_info['ticket_id']}")
         st.info(f"Kategoria: {ticket_info['category']}")
+        
+        # Log ticket creation
+        log_event(LOGS_DIR, "ticket_created", {
+            "ticket_id": ticket_info["ticket_id"],
+            "category": ticket_info["category"]
+        })
+        
         st.stop()
         
     with st.chat_message("assistant"):
@@ -460,12 +472,17 @@ if prompt is not None:
                 output_text = get_text_output(response)
                 st.markdown(output_text)
                 st.session_state.messages.append({"role": "assistant", "content": output_text})
+                
+                # Log assistant response
+                log_event(LOGS_DIR, "assistant_message", {"text": output_text[:2000]})
 
                 if hasattr(response, "id"):
                     st.session_state.previous_response_id = response.id
 
             except Exception as e:
                 st.error(f"Error generating response: {e}")
+                # Log the error
+                log_event(LOGS_DIR, "error", {"error": str(e)})
 
     for doc_path in documents:
         try:
@@ -489,3 +506,5 @@ if prompt is not None:
 
         except Exception as e:
             st.error(f"Nie udało się przetworzyć pliku {doc_path.name}: {e}")
+            # Log the error
+            log_event(LOGS_DIR, "error", {"error": str(e)})
