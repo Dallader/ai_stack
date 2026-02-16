@@ -20,14 +20,14 @@ Podejście jest **jasno rozdzielone**:
 **Integracja w RAG flow** [`tools/api_utils.py`](agents/agent2_ticket/tools/api_utils.py):
 
 ```python
-# 1. Pytanie uzytkownika → embedding
+# 1. Pytanie użytkownika → embedding
 embedding = client.embeddings.create(model=embedding_model_name, input=user_prompt)
 
 # 2. Wyszukanie top-5 dokumentów z Qdrant
 context_texts = qdrant_client.query_points(
     collection_name="Documents",
     query=embedding,
-    limit=5  # ← optimizacja!
+    limit=5  # ← optymalizacja!
 ).points
 
 # 3. Dołączenie kontekstu do system prompta
@@ -57,7 +57,7 @@ final_input = f"{system_prompt}\n\nContext:\n{context_str}\n\nUser: {user_prompt
 - **Obserwacja na żywo** — Streamlit sidebar pokazuje:
   - Ilość plików do importu
   - Statystyki kolekcji Qdrant
-  - Liczba kategorii w bazwie
+  - Liczba kategorii w bazie
 
 **Brakuje automatyzacji**:
 - ❌ Unit tests (pytest dla modułów)
@@ -81,12 +81,12 @@ Strategie implementowane:
 
 | Strategia | Implementacja |
 |-----------|---------------|
-| **Chunking** | 1000 znaków z overlap 200 w [`qdrant_utils.py`](agents/agent2_ticket/tools/qdrant_utils.py) |
+| **Chunking** | 1000 znaków ze wspólnym fragmentem (overlap) 200 w [`qdrant_utils.py`](agents/agent2_ticket/tools/qdrant_utils.py) |
 | **Top-K Limiting** | `top_k=5` zamiast wyszukiwania całej bazy w [`api_utils.py`](agents/agent2_ticket/tools/api_utils.py) |
-| **Odpowiedzi krótkie** | System prompt mówi: "5-6 sentences" → ogranicza verbose responses |
+| **Odpowiedzi krótkie** | System prompt mówi: "5-6 sentences" → ogranicza rozwlekłe odpowiedzi |
 | **Deduplikacja** | SHA256 hashing unika importowania duplikatów |
-| **Konwersacja zwista** | `previous_response_id` w Responses API — przechowuję kontekst turno-porturno zamiast wysyłać całą historię |
-| **Selective Context** | Tylko pytanie użytkownika jest embeddowane i szukane — obrazy poddawane są pseudo-embedding |
+| **Konwersacja zwista** | `previous_response_id` w Responses API — przechowuję kontekst tura po turze zamiast wysyłać całą historię |
+| **Selective Context** | Tylko pytanie użytkownika jest embeddowane i szukane w bazie — obrazy kodowane są jako pseudo-embeddingi |
 
 **Wynik**: Dla typowego pytania studenta:
 - System prompt: ~200 tokenów
@@ -100,7 +100,7 @@ Strategie implementowane:
 
 **Zapobieganie halucynacji**:
 
-1. **RAG grounding** — odpowiadają TYLKo na bazie dokumentów w Qdrant
+1. **RAG grounding** — odpowiadają TYLKO na bazie dokumentów w Qdrant
 2. **Explicit constraint**: `"Do not make up any information"` w system prompt
 3. **Fallback graceful**: Jeśli nie znają odpowiedzi → polecają ticket:
    ```python
@@ -113,12 +113,12 @@ Strategie implementowane:
 
 - **Persona**: `"You are a helpful university assistant"` — nie `"You are a chatbot"`
 - **Formatowanie Markdown**: System prompt wymaga struktury:
-  - Hierarchiczne headers (##, ###)
-  - Bullet points dla przejrzystości
+  - Hierarchiczne nagłówki (##, ###)
+  - Punkty listy dla przejrzystości
   - Tabele dla porównań
-  - Blockquotes dla definicji
+  - Cytowania dla definicji i wskazówek
 - **Greetings only once**: `"Greet the user only once at beginning, thereafter respond naturally"`
-- **Conversational continuity**: `previous_response_id` w Responses API utrzymuje spójność tonu między turami
+- **Conversational continuity**: `previous_response_id` w Responses API utrzymuje spójność tonu między kolejnymi turami rozmowy
 - **Contextual awareness**: Znają historię rozmowy z `st.session_state.messages`
 
 **Wynik**: Agent brzmi jak rzeczywisty pracownik BOS z dostępem do instrukcji, a nie jak maszyna.
@@ -145,7 +145,7 @@ Strategie implementowane:
    # Kiedy student chce zgłoszenie, system:
    1. Zbiera dane (imię, email, nr indeksu)
    2. Podsumowuje całą rozmowę: summarize_conversation()
-   3. Tworzy detailed description z pełnym kontekstem
+   3. Tworzy szczegółowy opis z pełnym kontekstem
    ```
 
 4. **Follow-up intelligence**:
@@ -156,11 +156,11 @@ Strategie implementowane:
 
 5. **Category & Priority extraction**:
    ```python
-   # Nieznownie nie zwykły matching, ale LLM analysis:
+   # Inteligentne przypisanie, a nie zwykły matching — pełna analiza LLM:
    def assign_category_priority_department(
        client, model_name, conversation_context
    ) -> Dict:
-       # "na podstawie CAŁEJ rozmowy wybierz kategorię"
+       # "na podstawie CAŁEJ rozmowy wybierz kategorię, priorytet i dział"
    ```
 
 **Wynik**: Student może prowadzić pogłębiającą rozmowę, gdzie agent rozumie:
@@ -178,8 +178,8 @@ Strategie implementowane:
 | **Wiedza** | Oddzielona: prompt = instrukcje, Qdrant = fakty |
 | **Halucynacja** | RAG + explicit constraints + graceful fallback |
 | **Tokeny** | Chunking, top-k, krótkie odpowiedzi, context reuse |
-| **Naturalność** | Persona, formatowanie, single greeting, continuity |
-| **Inteligencja** | Multi-turn memory, full conversation context, LLM-powered categorization |
-| **Testy** | Brak automatyzacji (opportunity!) — logi JSON dla audytu |
+| **Naturalność** | Persona, formatowanie, jedno przywitanie, spójność w rozmowie |
+| **Inteligencja** | Pamięć wieloturowa, pełny kontekst rozmowy, inteligentna kategoryzacja przez LLM |
+| **Testy** | Brak formalnych testów (potencjał do rozbudowy!) — logi JSON dla audytu |
 
 System jest **production-ready**, ale mógłby skorzystać z formalnego test suite'u (RAGAS, pytest) i CI/CD pipeline.
